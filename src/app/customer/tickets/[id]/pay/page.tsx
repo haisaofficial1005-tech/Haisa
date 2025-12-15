@@ -41,7 +41,6 @@ export default function PaymentPage() {
 
   const fetchTicketAndPayment = async () => {
     try {
-      // Fetch ticket details
       const ticketRes = await fetch(`/api/tickets/${ticketId}`);
       const ticketData = await ticketRes.json();
 
@@ -51,9 +50,8 @@ export default function PaymentPage() {
 
       setTicket(ticketData.ticket);
 
-      // If already paid, redirect to ticket detail
       if (ticketData.ticket.paymentStatus === 'PAID') {
-        router.push(`/tickets/${ticketId}`);
+        router.push(`/customer/tickets/${ticketId}`);
         return;
       }
     } catch (err) {
@@ -70,9 +68,7 @@ export default function PaymentPage() {
     try {
       const response = await fetch('/api/payments/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketId }),
       });
 
@@ -97,10 +93,7 @@ export default function PaymentPage() {
   };
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency,
-    }).format(amount);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency }).format(amount);
   };
 
   const formatDate = (dateStr: string) => {
@@ -115,12 +108,12 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto">
-        <div className="bg-white shadow rounded-lg p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-8 w-full max-w-md">
           <div className="animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-6 bg-slate-700 rounded w-1/2 mb-4"></div>
+            <div className="h-4 bg-slate-700 rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-slate-700 rounded w-1/2"></div>
           </div>
         </div>
       </div>
@@ -129,14 +122,11 @@ export default function PaymentPage() {
 
   if (error && !ticket) {
     return (
-      <div className="max-w-lg mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <h2 className="text-lg font-medium text-red-800">Error</h2>
-          <p className="mt-2 text-sm text-red-600">{error}</p>
-          <Link
-            href="/dashboard"
-            className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800"
-          >
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-red-500/20 border border-red-500 rounded-xl p-6 max-w-md">
+          <h2 className="text-lg font-medium text-red-400">Error</h2>
+          <p className="mt-2 text-sm text-red-300">{error}</p>
+          <Link href="/customer/dashboard" className="mt-4 inline-block text-sm text-blue-400 hover:text-blue-300">
             ← Kembali ke Dashboard
           </Link>
         </div>
@@ -145,136 +135,110 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
-      {/* Breadcrumb */}
-      <nav className="mb-4">
-        <Link href="/dashboard" className="text-blue-600 hover:text-blue-800">
-          ← Kembali ke Dashboard
-        </Link>
-      </nav>
-
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        {/* Header */}
-        <div className="bg-blue-600 px-6 py-4">
-          <h1 className="text-xl font-bold text-white">Pembayaran</h1>
-          <p className="text-blue-100 text-sm">
-            Tiket: {ticket?.ticketNo}
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <header className="bg-slate-800/50 border-b border-slate-700">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <Link href="/customer/dashboard" className="text-blue-400 hover:text-blue-300 text-sm">
+            ← Kembali ke Dashboard
+          </Link>
         </div>
+      </header>
 
-        <div className="p-6">
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
+      <main className="max-w-lg mx-auto px-4 py-8">
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+          {/* Header */}
+          <div className="bg-green-600 px-6 py-4">
+            <h1 className="text-xl font-bold text-white">Pembayaran</h1>
+            <p className="text-green-100 text-sm">Tiket: {ticket?.ticketNo}</p>
+          </div>
 
-          {!payment ? (
-            // Show payment creation button
-            <div className="text-center">
-              <div className="mb-6">
-                <svg
-                  className="mx-auto h-16 w-16 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                  />
-                </svg>
+          <div className="p-6">
+            {error && (
+              <div className="mb-4 bg-red-500/20 border border-red-500 rounded-lg p-4">
+                <p className="text-sm text-red-400">{error}</p>
               </div>
+            )}
 
-              <h2 className="text-lg font-medium text-gray-900 mb-2">
-                Selesaikan Pembayaran
-              </h2>
-              <p className="text-sm text-gray-600 mb-6">
-                Klik tombol di bawah untuk melanjutkan ke halaman pembayaran.
-              </p>
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Biaya Layanan</span>
-                  <span className="text-xl font-bold text-gray-900">
-                    Rp 50.000
-                  </span>
+            {!payment ? (
+              <div className="text-center">
+                <div className="mb-6">
+                  <svg className="mx-auto h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
                 </div>
-              </div>
 
-              <button
-                onClick={createPayment}
-                disabled={creatingPayment}
-                className="w-full px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creatingPayment ? 'Memproses...' : 'Bayar Sekarang'}
-              </button>
-            </div>
-          ) : (
-            // Show payment details
-            <div>
-              <div className="mb-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">
-                  Detail Pembayaran
-                </h2>
+                <h2 className="text-lg font-medium text-white mb-2">Selesaikan Pembayaran</h2>
+                <p className="text-sm text-slate-400 mb-6">
+                  Klik tombol di bawah untuk melanjutkan ke halaman pembayaran.
+                </p>
+
+                <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Biaya Layanan</span>
+                    <span className="text-xl font-bold text-white">Rp 49.500</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={createPayment}
+                  disabled={creatingPayment}
+                  className="w-full px-4 py-3 rounded-lg text-base font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  {creatingPayment ? 'Memproses...' : 'Bayar Sekarang'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-lg font-medium text-white mb-4">Detail Pembayaran</h2>
                 
-                <dl className="space-y-3">
+                <dl className="space-y-3 mb-6">
                   <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Order ID</dt>
-                    <dd className="text-sm font-mono text-gray-900">
-                      {payment.orderId}
-                    </dd>
+                    <dt className="text-sm text-slate-400">Order ID</dt>
+                    <dd className="text-sm font-mono text-white">{payment.orderId}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Jumlah</dt>
-                    <dd className="text-lg font-bold text-gray-900">
-                      {formatCurrency(payment.amount, payment.currency)}
-                    </dd>
+                    <dt className="text-sm text-slate-400">Jumlah</dt>
+                    <dd className="text-lg font-bold text-white">{formatCurrency(payment.amount, payment.currency)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Batas Waktu</dt>
-                    <dd className="text-sm text-gray-900">
-                      {formatDate(payment.expiresAt)}
-                    </dd>
+                    <dt className="text-sm text-slate-400">Batas Waktu</dt>
+                    <dd className="text-sm text-white">{formatDate(payment.expiresAt)}</dd>
                   </div>
                 </dl>
-              </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
-                <p className="text-sm text-yellow-800">
-                  Selesaikan pembayaran sebelum batas waktu berakhir. 
-                  Pembayaran yang tidak diselesaikan akan otomatis dibatalkan.
+                <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-yellow-300">
+                    Selesaikan pembayaran sebelum batas waktu berakhir. 
+                    Pembayaran yang tidak diselesaikan akan otomatis dibatalkan.
+                  </p>
+                </div>
+
+                <a
+                  href={payment.paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full px-4 py-3 rounded-lg text-base font-medium text-white bg-green-600 hover:bg-green-700 text-center transition-colors"
+                >
+                  Lanjut ke Halaman Pembayaran →
+                </a>
+
+                <p className="mt-4 text-xs text-slate-500 text-center">
+                  Anda akan diarahkan ke halaman pembayaran Yukk.
                 </p>
               </div>
-
-              <a
-                href={payment.paymentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full px-4 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 text-center"
-              >
-                Lanjut ke Halaman Pembayaran →
-              </a>
-
-              <p className="mt-4 text-xs text-gray-500 text-center">
-                Anda akan diarahkan ke halaman pembayaran pihak ketiga.
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Help Section */}
-      <div className="mt-6 text-center">
-        <p className="text-sm text-gray-600">
-          Butuh bantuan?{' '}
-          <a href="mailto:support@haisa.id" className="text-blue-600 hover:text-blue-800">
-            Hubungi kami
-          </a>
-        </p>
-      </div>
+        <div className="mt-6 text-center">
+          <p className="text-sm text-slate-500">
+            Butuh bantuan?{' '}
+            <a href="mailto:support@haisa.id" className="text-blue-400 hover:text-blue-300">
+              Hubungi kami
+            </a>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

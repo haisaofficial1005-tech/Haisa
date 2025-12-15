@@ -18,11 +18,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const response = NextResponse.json({ success: true });
+    // Redirect to login page after logout
+    const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete('session-token');
     return response;
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json({ error: 'Logout failed' }, { status: 500 });
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 }
