@@ -21,7 +21,17 @@ function getLibsqlClient(): Client {
   const tursoUrl = process.env.TURSO_DATABASE_URL;
   const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-  if (tursoUrl && tursoUrl.startsWith('libsql://')) {
+  // Debug logging
+  console.log('DB Init - TURSO_DATABASE_URL exists:', !!tursoUrl);
+  console.log('DB Init - TURSO_AUTH_TOKEN exists:', !!tursoAuthToken);
+  console.log('DB Init - NODE_ENV:', process.env.NODE_ENV);
+
+  if (!tursoUrl) {
+    console.error('TURSO_DATABASE_URL is not set! Check Vercel Environment Variables.');
+    throw new Error('TURSO_DATABASE_URL environment variable is required');
+  }
+
+  if (tursoUrl.startsWith('libsql://')) {
     globalForPrisma.libsqlClient = createClient({
       url: tursoUrl,
       authToken: tursoAuthToken,
