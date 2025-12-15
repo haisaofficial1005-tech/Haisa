@@ -1,71 +1,67 @@
 /**
- * Database client with Turso (libSQL) adapter
- * Lazy initialization to ensure env vars are available at runtime
+ * Database client with Turso (libSQL) adapter for Prisma 7
+ * Uses driver adapters - no DATABASE_URL needed at runtime
  */
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { createClient, Client } from '@libsql/client';
 
-// Global cache
+// Singleton for hot reload in development
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
-  libsqlClient: Client | undefined;
 };
 
-function getLibsqlClient(): Client {
-  if (globalForPrisma.libsqlClient) {
-    return globalForPrisma.libsqlClient;
-  }
+function initializePrisma(): PrismaClient {
+  // Read env vars fresh each time
+  const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
+  const nodeEnv = process.env.NODE_ENV;
 
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
+  // Detailed debug logging
+  console.log('DB Init - NODE_ENV:', nodeEnv);
+  console.log('DB Init - TURSO_DATABASE_URL value:', tursoUrl ? `"${tursoUrl.substring(0, 40)}..."` : 'EMPTY/UNDEFINED');
+  console.log('DB Init - TURSO_AUTH_TOKEN exists:', !!tursoAuthToken && tursoAuthToken.length > 0);
 
-  // Debug logging
-  console.log('DB Init - TURSO_DATABASE_URL exists:', !!tursoUrl);
-  console.log('DB Init - TURSO_AUTH_TOKEN exists:', !!tursoAuthToken);
-  console.log('DB Init - NODE_ENV:', process.env.NODE_ENV);
-
-  if (!tursoUrl) {
-    console.error('TURSO_DATABASE_URL is not set! Check Vercel Environment Variables.');
-    throw new Error('TURSO_DATABASE_URL environment variable is required');
-  }
-
-  if (tursoUrl.startsWith('libsql://')) {
-    globalForPrisma.libsqlClient = createClient({
+  // Validate Turso URL format
+  const isValidTursoUrl = tursoUrl && tursoUrl.startsWith('libsql://') && tursoUrl.length > 15;
+  
+  let adapter;
+  
+  if (isValidTursoUrl) {
+    console.log('DB Init - Using Turso remote database');
+    // PrismaLibSql in v7 accepts config object directly
+    adapter = new PrismaLibSql({
       url: tursoUrl,
-      authToken: tursoAuthToken,
+      authToken: tursoAuthToken || undefined,
     });
   } else {
-    globalForPrisma.libsqlClient = createClient({
+    // Fallback to local SQLite for development
+    console.log('DB Init - Using local SQLite database (fallback)');
+    adapter = new PrismaLibSql({
       url: 'file:./prisma/dev.db',
     });
   }
-
-  return globalForPrisma.libsqlClient;
+  
+  return new PrismaClient({
+    adapter,
+    log: nodeEnv === 'development' ? ['error', 'warn'] : ['error'],
+  });
 }
 
-function getPrismaClient(): PrismaClient {
-  if (globalForPrisma.prisma) {
-    return globalForPrisma.prisma;
+// Lazy initialization - create on first access
+function getPrisma(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = initializePrisma();
   }
-
-  const libsqlClient = getLibsqlClient();
-  const adapter = new PrismaLibSql(libsqlClient);
-
-  globalForPrisma.prisma = new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
-
   return globalForPrisma.prisma;
 }
 
-// Export as getter to ensure lazy initialization
+// Export as getter proxy for true lazy initialization
 export const prisma = new Proxy({} as PrismaClient, {
   get(_, prop) {
-    const client = getPrismaClient();
-    const value = (client as Record<string | symbol, unknown>)[prop];
+    const client = getPrisma();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const value = (client as any)[prop];
     if (typeof value === 'function') {
       return value.bind(client);
     }
