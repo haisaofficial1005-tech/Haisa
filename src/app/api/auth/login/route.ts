@@ -1,6 +1,7 @@
 /**
  * Simple WhatsApp Number Login API
  * No hashing, direct lookup in Turso
+ * Phone format: 6281234567890 (no + sign)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,18 +10,23 @@ import { prisma } from '@/core/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { phone, name } = await request.json();
+    const body = await request.json();
+    const { phone, name } = body;
 
     if (!phone) {
-      return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nomor WhatsApp wajib diisi' }, { status: 400 });
     }
 
-    // Normalize phone number (remove spaces, dashes)
-    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+    // Normalize phone number - keep only digits, remove +, spaces, dashes
+    const normalizedPhone = String(phone).replace(/[^\d]/g, '');
+
+    if (normalizedPhone.length < 10) {
+      return NextResponse.json({ error: 'Nomor WhatsApp tidak valid' }, { status: 400 });
+    }
 
     // Find or create user by phone
     let user = await prisma.user.findFirst({
-      where: { email: normalizedPhone }, // Using email field to store phone
+      where: { email: normalizedPhone },
     });
 
     if (!user) {
@@ -28,10 +34,9 @@ export async function POST(request: NextRequest) {
       user = await prisma.user.create({
         data: {
           id: crypto.randomUUID(),
-          email: normalizedPhone, // Store phone in email field
+          email: normalizedPhone,
           name: name || `User ${normalizedPhone.slice(-4)}`,
           role: 'CUSTOMER',
-          updatedAt: new Date(),
         },
       });
     }
@@ -71,10 +76,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Login error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ 
-      error: 'Login failed', 
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined 
+      error: 'Login gagal, coba lagi',
+      debug: process.env.NODE_ENV !== 'production' ? String(error) : undefined
     }, { status: 500 });
   }
 }

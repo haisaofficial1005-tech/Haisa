@@ -10,6 +10,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
+  // Normalize phone: remove +, spaces, dashes, keep only digits
+  const normalizePhone = (value: string) => {
+    return value.replace(/[^\d]/g, '');
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const normalized = normalizePhone(e.target.value);
+    setPhone(normalized);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -48,11 +58,12 @@ export default function LoginPage() {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+62812345678"
+              onChange={handlePhoneChange}
+              placeholder="6281234567890"
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
               required
             />
+            <p className="text-slate-500 text-xs mt-1">Contoh: 6281234567890 (tanpa +)</p>
           </div>
 
           <div>
@@ -72,7 +83,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !phone}
+            disabled={loading || !phone || phone.length < 10}
             className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white font-medium rounded-lg transition-colors"
           >
             {loading ? 'Memproses...' : 'Masuk'}
