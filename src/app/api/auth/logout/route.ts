@@ -2,28 +2,25 @@
  * Logout API
  */
 
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/core/db';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session-token')?.value;
+    const sessionToken = request.cookies.get('session-token')?.value;
 
     if (sessionToken) {
-      // Delete session from database
       await prisma.session.deleteMany({
         where: { sessionToken },
       });
-
-      // Clear cookie
-      cookieStore.delete('session-token');
     }
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete('session-token');
+    return response;
   } catch (error) {
     console.error('Logout error:', error);
     return NextResponse.json({ error: 'Logout failed' }, { status: 500 });

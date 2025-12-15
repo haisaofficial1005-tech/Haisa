@@ -2,31 +2,29 @@
  * Get current user API
  */
 
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/core/db';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session-token')?.value;
+    const sessionToken = request.cookies.get('session-token')?.value;
 
     if (!sessionToken) {
       return NextResponse.json({ user: null });
     }
 
-    // Find session and user
     const session = await prisma.session.findUnique({
       where: { sessionToken },
       include: { user: true },
     });
 
     if (!session || session.expires < new Date()) {
-      // Session expired or not found
-      cookieStore.delete('session-token');
-      return NextResponse.json({ user: null });
+      const response = NextResponse.json({ user: null });
+      response.cookies.delete('session-token');
+      return response;
     }
 
     return NextResponse.json({
