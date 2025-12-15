@@ -18,34 +18,43 @@ function initializePrisma(): PrismaClient {
   const nodeEnv = process.env.NODE_ENV;
 
   // Detailed debug logging
-  console.log('DB Init - NODE_ENV:', nodeEnv);
-  console.log('DB Init - TURSO_DATABASE_URL value:', tursoUrl ? `"${tursoUrl.substring(0, 40)}..."` : 'EMPTY/UNDEFINED');
-  console.log('DB Init - TURSO_AUTH_TOKEN exists:', !!tursoAuthToken && tursoAuthToken.length > 0);
+  console.log('DB Init v2 - NODE_ENV:', nodeEnv);
+  console.log('DB Init v2 - TURSO_DATABASE_URL:', tursoUrl ? `"${tursoUrl.substring(0, 50)}..."` : 'NOT_SET');
+  console.log('DB Init v2 - TURSO_AUTH_TOKEN:', tursoAuthToken ? 'SET' : 'NOT_SET');
 
   // Validate Turso URL format
   const isValidTursoUrl = tursoUrl && tursoUrl.startsWith('libsql://') && tursoUrl.length > 15;
   
   let adapter;
+  let dbUrl: string;
   
   if (isValidTursoUrl) {
-    console.log('DB Init - Using Turso remote database');
-    // PrismaLibSql in v7 accepts config object directly
+    console.log('DB Init v2 - Connecting to Turso remote');
+    dbUrl = tursoUrl;
     adapter = new PrismaLibSql({
       url: tursoUrl,
       authToken: tursoAuthToken || undefined,
     });
   } else {
-    // Fallback to local SQLite for development
-    console.log('DB Init - Using local SQLite database (fallback)');
+    console.log('DB Init v2 - Using local SQLite fallback');
+    dbUrl = 'file:./prisma/dev.db';
     adapter = new PrismaLibSql({
-      url: 'file:./prisma/dev.db',
+      url: dbUrl,
     });
   }
+
+  // Set DATABASE_URL as fallback for any internal Prisma checks
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = dbUrl;
+  }
   
-  return new PrismaClient({
+  const client = new PrismaClient({
     adapter,
     log: nodeEnv === 'development' ? ['error', 'warn'] : ['error'],
   });
+
+  console.log('DB Init v2 - PrismaClient created successfully');
+  return client;
 }
 
 // Lazy initialization - create on first access
