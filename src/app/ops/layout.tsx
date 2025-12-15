@@ -16,7 +16,7 @@ export default async function OpsLayout({
   const session = await getServerSession(authOptions);
 
   if (!session) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   // Only AGENT and ADMIN can access ops pages

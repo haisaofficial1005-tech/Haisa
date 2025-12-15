@@ -39,7 +39,7 @@ function ErrorContent() {
 
         <div className="flex flex-col gap-4">
           <Link
-            href="/auth/signin"
+            href="/login"
             className="w-full text-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Try Again

@@ -63,7 +63,7 @@ export default async function OpsTicketDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   if (!session?.user?.id) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   const userRole = (session.user as { role?: string })?.role;

@@ -92,7 +92,7 @@ export function createAuthOptions(): NextAuthOptions {
       },
     },
     pages: {
-      signIn: '/auth/signin',
+      signIn: '/login',
       error: '/auth/error',
     },
     session: {
