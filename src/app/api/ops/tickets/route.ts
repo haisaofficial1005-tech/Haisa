@@ -25,10 +25,12 @@ interface TicketFilters {
  * Requirements: 8.1, 9.1
  * Property 17: RBAC Access Control
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Validate authentication
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }

@@ -13,6 +13,8 @@ interface CreatePaymentBody {
   ticketId: string;
 }
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/payments/create
  * Creates a payment order for a ticket
@@ -21,7 +23,7 @@ interface CreatePaymentBody {
 export async function POST(request: NextRequest) {
   try {
     // Validate authentication
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }

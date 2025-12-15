@@ -12,6 +12,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/tickets/[id]
  * Gets ticket details with attachments
@@ -21,7 +23,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Validate authentication
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }

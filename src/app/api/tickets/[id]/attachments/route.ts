@@ -19,6 +19,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/tickets/[id]/attachments
  * Uploads a screenshot attachment
@@ -27,7 +29,7 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     // Validate authentication
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }
@@ -147,7 +149,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Validate authentication
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }

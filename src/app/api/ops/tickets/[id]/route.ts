@@ -24,6 +24,8 @@ interface UpdateTicketBody {
   notesInternal?: string;
 }
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/ops/tickets/[id]
  * Gets ticket details for ops view
@@ -31,7 +33,7 @@ interface UpdateTicketBody {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await validateSession();
+    const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }
