@@ -1,11 +1,11 @@
 /**
  * API Authentication Middleware
- * Requirements: 12.3
+ * Simple session-based auth with Turso
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from './auth.options';
+import { cookies } from 'next/headers';
+import { prisma } from '@/core/db';
 
 // Type alias (SQLite uses strings instead of enums)
 type UserRole = string;
@@ -25,35 +25,44 @@ export interface AuthResult {
 
 /**
  * Validates session and returns authenticated user
- * Property 22: API Authentication
  */
 export async function validateSession(): Promise<AuthResult> {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get('session-token')?.value;
+
+    if (!sessionToken) {
       return {
         authenticated: false,
         user: null,
-        error: 'No valid session',
+        error: 'No session token',
       };
     }
 
-    const user = session.user as AuthenticatedUser;
-    
-    if (!user.id || !user.email) {
+    const session = await prisma.session.findUnique({
+      where: { sessionToken },
+      include: { user: true },
+    });
+
+    if (!session || session.expires < new Date()) {
       return {
         authenticated: false,
         user: null,
-        error: 'Invalid session data',
+        error: 'Session expired or invalid',
       };
     }
 
     return {
       authenticated: true,
-      user,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name || '',
+        role: session.user.role,
+      },
     };
   } catch (error) {
+    console.error('Session validation error:', error);
     return {
       authenticated: false,
       user: null,
@@ -84,55 +93,52 @@ export function forbiddenResponse(message: string = 'Forbidden'): NextResponse {
 
 /**
  * Middleware to require authentication
- * Returns 401 if not authenticated
  */
 export async function requireAuth(): Promise<{ user: AuthenticatedUser } | NextResponse> {
   const result = await validateSession();
-  
+
   if (!result.authenticated || !result.user) {
     return unauthorizedResponse(result.error);
   }
-  
+
   return { user: result.user };
 }
 
 /**
  * Middleware to require specific role(s)
- * Returns 401 if not authenticated, 403 if wrong role
  */
 export async function requireRole(
   allowedRoles: UserRole[]
 ): Promise<{ user: AuthenticatedUser } | NextResponse> {
   const authResult = await requireAuth();
-  
+
   if (authResult instanceof NextResponse) {
     return authResult;
   }
-  
+
   if (!allowedRoles.includes(authResult.user.role)) {
     return forbiddenResponse('Insufficient permissions');
   }
-  
+
   return authResult;
 }
 
 /**
  * Checks if a request has valid authentication
- * Pure function for testing
  */
 export function isAuthenticated(session: unknown): boolean {
   if (!session || typeof session !== 'object') {
     return false;
   }
-  
+
   const s = session as Record<string, unknown>;
-  
+
   if (!s.user || typeof s.user !== 'object') {
     return false;
   }
-  
+
   const user = s.user as Record<string, unknown>;
-  
+
   return (
     typeof user.id === 'string' &&
     user.id.length > 0 &&
@@ -143,16 +149,15 @@ export function isAuthenticated(session: unknown): boolean {
 
 /**
  * Extracts user from session
- * Pure function for testing
  */
 export function extractUserFromSession(session: unknown): AuthenticatedUser | null {
   if (!isAuthenticated(session)) {
     return null;
   }
-  
+
   const s = session as { user: Record<string, unknown> };
   const user = s.user;
-  
+
   return {
     id: user.id as string,
     email: user.email as string,
