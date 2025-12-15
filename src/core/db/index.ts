@@ -1,53 +1,67 @@
 /**
  * Database client with Turso (libSQL) adapter
- * 
- * This module sets up Prisma with the libSQL driver adapter for Turso.
- * For local development, it uses a local SQLite file.
+ * Lazy initialization to ensure env vars are available at runtime
  */
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
+import { createClient, Client } from '@libsql/client';
 
-// Environment variables
-const tursoUrl = process.env.TURSO_DATABASE_URL;
-const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
-
-// Determine if we're using Turso or local SQLite
-const isUsingTurso = tursoUrl && tursoUrl.startsWith('libsql://');
-
-// Create libsql client
-const libsqlClient = createClient(
-  isUsingTurso
-    ? {
-        url: tursoUrl,
-        authToken: tursoAuthToken,
-      }
-    : {
-        url: 'file:./prisma/dev.db',
-      }
-);
-
-// Create Prisma adapter
-const adapter = new PrismaLibSql(libsqlClient);
-
-// Create Prisma client with adapter
+// Global cache
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  libsqlClient: Client | undefined;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function getLibsqlClient(): Client {
+  if (globalForPrisma.libsqlClient) {
+    return globalForPrisma.libsqlClient;
+  }
+
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (tursoUrl && tursoUrl.startsWith('libsql://')) {
+    globalForPrisma.libsqlClient = createClient({
+      url: tursoUrl,
+      authToken: tursoAuthToken,
+    });
+  } else {
+    globalForPrisma.libsqlClient = createClient({
+      url: 'file:./prisma/dev.db',
+    });
+  }
+
+  return globalForPrisma.libsqlClient;
+}
+
+function getPrismaClient(): PrismaClient {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
+
+  const libsqlClient = getLibsqlClient();
+  const adapter = new PrismaLibSql(libsqlClient);
+
+  globalForPrisma.prisma = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
+  return globalForPrisma.prisma;
 }
 
-export default prisma;
+// Export as getter to ensure lazy initialization
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop) {
+    const client = getPrismaClient();
+    const value = (client as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  },
+});
 
-// Export type for use in other modules
+export default prisma;
 export type { PrismaClient };
