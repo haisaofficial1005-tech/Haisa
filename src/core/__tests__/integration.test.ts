@@ -195,14 +195,14 @@ class MockAuditService {
 
 class MockGoogleSyncService {
   syncNewTicket(ticket: Ticket): {
-    folderId: string;
-    folderUrl: string;
-    rowIndex: number;
+    googleDriveFolderId: string;
+    googleDriveFolderUrl: string;
+    googleSheetRowIndex: number;
   } {
     return {
-      folderId: `folder-${ticket.ticketNo}`,
-      folderUrl: `https://drive.google.com/folders/${ticket.ticketNo}`,
-      rowIndex: Math.floor(Math.random() * 1000) + 2,
+      googleDriveFolderId: `folder-${ticket.ticketNo}`,
+      googleDriveFolderUrl: `https://drive.google.com/folders/${ticket.ticketNo}`,
+      googleSheetRowIndex: Math.floor(Math.random() * 1000) + 2,
     };
   }
 
@@ -296,20 +296,20 @@ describe('Integration: Ticket Creation → Payment → Google Sync Flow', () => 
     // Step 4: Trigger Google sync
     const syncResult = googleSyncService.syncNewTicket(paidTicket!);
     
-    expect(syncResult.folderId).toBeTruthy();
-    expect(syncResult.folderUrl).toBeTruthy();
-    expect(syncResult.rowIndex).toBeGreaterThan(1);
+    expect(syncResult.googleDriveFolderId).toBeTruthy();
+    expect(syncResult.googleDriveFolderUrl).toBeTruthy();
+    expect(syncResult.googleSheetRowIndex).toBeGreaterThan(1);
 
     // Update ticket with sync data - directly modify the ticket object
     // since we're using in-memory mock
-    paidTicket!.googleDriveFolderId = syncResult.folderId;
-    paidTicket!.googleDriveFolderUrl = syncResult.folderUrl;
-    paidTicket!.googleSheetRowIndex = syncResult.rowIndex;
+    paidTicket!.googleDriveFolderId = syncResult.googleDriveFolderId;
+    paidTicket!.googleDriveFolderUrl = syncResult.googleDriveFolderUrl;
+    paidTicket!.googleSheetRowIndex = syncResult.googleSheetRowIndex;
     
     // Verify sync data was stored
-    expect(paidTicket?.googleDriveFolderId).toBe(syncResult.folderId);
-    expect(paidTicket?.googleDriveFolderUrl).toBe(syncResult.folderUrl);
-    expect(paidTicket?.googleSheetRowIndex).toBe(syncResult.rowIndex);
+    expect(paidTicket?.googleDriveFolderId).toBe(syncResult.googleDriveFolderId);
+    expect(paidTicket?.googleDriveFolderUrl).toBe(syncResult.googleDriveFolderUrl);
+    expect(paidTicket?.googleSheetRowIndex).toBe(syncResult.googleSheetRowIndex);
   });
 
   /**

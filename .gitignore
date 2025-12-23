@@ -38,3 +38,17 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+# Prisma
+/prisma/dev.db*
+
+# WhatsApp session
+/whatsapp-session
+
+# Logs
+/logs/*.log
+!/logs/.gitkeep
+
+# Security
+*.key
+*.pem
+*.p12

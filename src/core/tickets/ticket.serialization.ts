@@ -5,8 +5,13 @@
 
 import type { TicketWithRelations, SerializedTicket } from './ticket.types';
 
-// Status constants (SQLite uses strings instead of enums)
-const IssueType = {
+// Status types (SQLite uses strings instead of enums)
+type IssueType = 'ACCOUNT_BANNED' | 'ACCOUNT_SUSPENDED' | 'VERIFICATION_ISSUE' | 'HACKED_ACCOUNT' | 'OTHER';
+type TicketStatus = 'DRAFT' | 'RECEIVED' | 'IN_REVIEW' | 'NEED_MORE_INFO' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REJECTED';
+type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'REFUNDED';
+
+// Keep const objects for validation
+const IssueTypeValues = {
   ACCOUNT_BANNED: 'ACCOUNT_BANNED',
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   VERIFICATION_ISSUE: 'VERIFICATION_ISSUE',
@@ -14,7 +19,7 @@ const IssueType = {
   OTHER: 'OTHER',
 } as const;
 
-const TicketStatus = {
+const TicketStatusValues = {
   DRAFT: 'DRAFT',
   RECEIVED: 'RECEIVED',
   IN_REVIEW: 'IN_REVIEW',
@@ -25,7 +30,7 @@ const TicketStatus = {
   REJECTED: 'REJECTED',
 } as const;
 
-const PaymentStatus = {
+const PaymentStatusValues = {
   PENDING: 'PENDING',
   PAID: 'PAID',
   FAILED: 'FAILED',

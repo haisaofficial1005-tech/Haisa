@@ -4,8 +4,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/core/auth/auth.options';
+import { getSession } from '@/core/auth/session';
 import Link from 'next/link';
 
 export default async function OpsLayout({
@@ -13,16 +12,16 @@ export default async function OpsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
 
   if (!session) {
     redirect('/login');
   }
 
-  // Only AGENT and ADMIN can access ops pages
-  const userRole = (session.user as { role?: string })?.role;
-  if (userRole !== 'AGENT' && userRole !== 'ADMIN') {
-    redirect('/dashboard');
+  // Only ADMIN, OPS, and AGENT can access ops pages
+  const userRole = session.role;
+  if (!['ADMIN', 'OPS', 'AGENT'].includes(userRole)) {
+    redirect('/customer/dashboard');
   }
 
   const isAdmin = userRole === 'ADMIN';
@@ -58,7 +57,27 @@ export default async function OpsLayout({
               <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              Tiket
+              Tiket WA
+            </Link>
+
+            <Link
+              href="/ops/gmail-sales"
+              className="flex items-center px-4 py-2 text-sm font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
+            >
+              <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Jual Gmail
+            </Link>
+
+            <Link
+              href="/ops/payment-verification"
+              className="flex items-center px-4 py-2 text-sm font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
+            >
+              <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Verifikasi Pembayaran
             </Link>
 
             {isAdmin && (
@@ -69,7 +88,7 @@ export default async function OpsLayout({
                 <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                Agents
+                Kelola Agents
               </Link>
             )}
           </nav>
@@ -78,14 +97,14 @@ export default async function OpsLayout({
           <div className="flex items-center px-4 py-4 border-t border-gray-700">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {session.user?.name || session.user?.email}
+                {session.name}
               </p>
               <p className="text-xs text-gray-400">
                 {userRole}
               </p>
             </div>
             <Link
-              href="/api/auth/signout"
+              href="/api/auth/logout"
               className="ml-3 text-gray-400 hover:text-white"
               title="Logout"
             >

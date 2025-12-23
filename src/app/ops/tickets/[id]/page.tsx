@@ -123,13 +123,19 @@ export default async function OpsTicketDetailPage({ params }: PageProps) {
   }
 
   // Fetch available agents for assignment (admin only)
-  const agents = isAdmin
+  const agentsRaw = isAdmin
     ? await prisma.user.findMany({
         where: { role: { in: ['AGENT', 'ADMIN'] } },
         select: { id: true, name: true, email: true, role: true },
         orderBy: { name: 'asc' },
       })
     : [];
+  
+  // Map to ensure name is never null
+  const agents = agentsRaw.map(a => ({
+    ...a,
+    name: a.name || a.email,
+  }));
 
   return (
     <div>

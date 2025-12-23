@@ -35,7 +35,12 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.success) {
-        router.push('/customer/dashboard');
+        // Redirect based on user role
+        if (data.user.role === 'ADMIN' || data.user.role === 'OPS' || data.user.role === 'AGENT') {
+          router.push('/ops/dashboard');
+        } else {
+          router.push('/customer/dashboard');
+        }
       } else {
         setError(data.error || 'Login gagal');
       }

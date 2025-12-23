@@ -1,55 +1,90 @@
 /**
- * Session utilities for authentication
- * Requirements: 1.2, 1.4
+ * Enhanced Session management utilities with JWT
  */
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from './auth.options';
+import { cookies } from 'next/headers';
+import { verifySessionToken, shouldRefreshToken, generateSessionToken, type JWTPayload } from '@/core/security/jwt';
 
-/**
- * Get the current session on the server side
- * Returns null if not authenticated
- */
-export async function getSession() {
-  return getServerSession(authOptions);
+export interface SessionUser {
+  userId: string;
+  phone: string;
+  name: string;
+  role: string;
+  loginAt: string;
+  sessionId: string;
+  deviceFingerprint?: string;
 }
 
-/**
- * Get the current user from session
- * Returns null if not authenticated
- */
-export async function getCurrentUser() {
+export async function getSession(): Promise<SessionUser | null> {
+  try {
+    const cookieStore = cookies();
+    const sessionCookie = cookieStore.get('haisa-session');
+
+    if (!sessionCookie?.value) {
+      return null;
+    }
+
+    // Verify JWT token
+    const payload = verifySessionToken(sessionCookie.value);
+    if (!payload) {
+      return null;
+    }
+
+    // Check if token should be refreshed
+    if (shouldRefreshToken(payload)) {
+      // Generate new token with same data
+      const newToken = generateSessionToken({
+        userId: payload.userId,
+        phone: payload.phone,
+        name: payload.name,
+        role: payload.role,
+        deviceFingerprint: payload.deviceFingerprint,
+      });
+
+      // Update cookie
+      cookieStore.set('haisa-session', newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60, // 24 hours
+        path: '/',
+      });
+    }
+
+    return {
+      userId: payload.userId,
+      phone: payload.phone,
+      name: payload.name,
+      role: payload.role,
+      loginAt: payload.loginAt,
+      sessionId: payload.sessionId,
+      deviceFingerprint: payload.deviceFingerprint,
+    };
+  } catch (error) {
+    console.error('Session error:', error);
+    return null;
+  }
+}
+
+export async function requireAuth(allowedRoles?: string[]): Promise<SessionUser> {
   const session = await getSession();
-  return session?.user ?? null;
+  
+  if (!session) {
+    throw new Error('Authentication required');
+  }
+
+  if (allowedRoles && !allowedRoles.includes(session.role)) {
+    throw new Error('Insufficient permissions');
+  }
+
+  return session;
 }
 
-/**
- * Check if the current user is authenticated
- */
-export async function isAuthenticated(): Promise<boolean> {
-  const session = await getSession();
-  return session !== null;
+export async function requireAdminAuth(): Promise<SessionUser> {
+  return requireAuth(['ADMIN', 'OPS', 'AGENT']);
 }
 
-/**
- * Check if the current user has a specific role
- */
-export async function hasRole(role: 'CUSTOMER' | 'AGENT' | 'ADMIN'): Promise<boolean> {
-  const user = await getCurrentUser();
-  return user?.role === role;
-}
-
-/**
- * Check if the current user is an admin
- */
-export async function isAdmin(): Promise<boolean> {
-  return hasRole('ADMIN');
-}
-
-/**
- * Check if the current user is an agent or admin
- */
-export async function isAgentOrAdmin(): Promise<boolean> {
-  const user = await getCurrentUser();
-  return user?.role === 'AGENT' || user?.role === 'ADMIN';
+export async function clearSession(): Promise<void> {
+  const cookieStore = cookies();
+  cookieStore.delete('haisa-session');
 }

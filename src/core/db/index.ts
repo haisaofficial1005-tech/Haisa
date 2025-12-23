@@ -1,6 +1,6 @@
 /**
- * Database client with Turso (libSQL) adapter for Prisma 7
- * Uses driver adapters - no DATABASE_URL needed at runtime
+ * Database client with fallback to local SQLite
+ * Uses driver adapters for Prisma 7
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -12,48 +12,26 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function initializePrisma(): PrismaClient {
-  // Read env vars fresh each time
-  const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
-  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
   const nodeEnv = process.env.NODE_ENV;
+  const databaseUrl = process.env.DATABASE_URL;
 
-  // Detailed debug logging
-  console.log('DB Init v2 - NODE_ENV:', nodeEnv);
-  console.log('DB Init v2 - TURSO_DATABASE_URL:', tursoUrl ? `"${tursoUrl.substring(0, 50)}..."` : 'NOT_SET');
-  console.log('DB Init v2 - TURSO_AUTH_TOKEN:', tursoAuthToken ? 'SET' : 'NOT_SET');
+  console.log('DB Init - NODE_ENV:', nodeEnv);
+  console.log('DB Init - DATABASE_URL:', databaseUrl ? 'SET' : 'NOT_SET');
 
-  // Validate Turso URL format
-  const isValidTursoUrl = tursoUrl && tursoUrl.startsWith('libsql://') && tursoUrl.length > 15;
-  
-  let adapter;
-  let dbUrl: string;
-  
-  if (isValidTursoUrl) {
-    console.log('DB Init v2 - Connecting to Turso remote');
-    dbUrl = tursoUrl;
-    adapter = new PrismaLibSql({
-      url: tursoUrl,
-      authToken: tursoAuthToken || undefined,
-    });
-  } else {
-    console.log('DB Init v2 - Using local SQLite fallback');
-    dbUrl = 'file:./prisma/dev.db';
-    adapter = new PrismaLibSql({
-      url: dbUrl,
-    });
-  }
+  // Use local SQLite for now
+  const dbUrl = databaseUrl || 'file:./prisma/dev.db';
+  console.log('DB Init - Using database:', dbUrl);
 
-  // Set DATABASE_URL as fallback for any internal Prisma checks
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = dbUrl;
-  }
-  
+  const adapter = new PrismaLibSql({
+    url: dbUrl,
+  });
+
   const client = new PrismaClient({
     adapter,
     log: nodeEnv === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-  console.log('DB Init v2 - PrismaClient created successfully');
+  console.log('DB Init - PrismaClient created successfully');
   return client;
 }
 

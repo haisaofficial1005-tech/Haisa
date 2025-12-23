@@ -1,86 +1,113 @@
 /**
- * API Authentication Middleware
- * Simple session-based auth with Turso
+ * Enhanced Authentication middleware for API routes
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/core/db';
-
-type UserRole = string;
-
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-}
+import { verifySessionToken, type JWTPayload } from '@/core/security/jwt';
+import { checkRateLimit, isClientBlocked } from '@/core/security/rate-limit';
+import { logUnauthorizedAccess, logRateLimitExceeded } from '@/core/security/logger';
 
 export interface AuthResult {
   authenticated: boolean;
-  user: AuthenticatedUser | null;
-  error?: string;
+  user: JWTPayload | null;
+}
+
+export async function validateSession(request: NextRequest): Promise<AuthResult> {
+  try {
+    // Check if client is blocked
+    if (isClientBlocked(request)) {
+      return { authenticated: false, user: null };
+    }
+
+    // Get session from cookie
+    const sessionCookie = request.cookies.get('haisa-session');
+    
+    if (!sessionCookie?.value) {
+      return { authenticated: false, user: null };
+    }
+
+    // Verify JWT token
+    const payload = verifySessionToken(sessionCookie.value);
+    if (!payload) {
+      return { authenticated: false, user: null };
+    }
+
+    return { authenticated: true, user: payload };
+  } catch (error) {
+    console.error('Session validation error:', error);
+    return { authenticated: false, user: null };
+  }
+}
+
+export function unauthorizedResponse(message?: string) {
+  return NextResponse.json(
+    { error: 'UNAUTHORIZED', message: message || 'Authentication required' },
+    { status: 401 }
+  );
+}
+
+export function forbiddenResponse(message?: string) {
+  return NextResponse.json(
+    { error: 'FORBIDDEN', message: message || 'Insufficient permissions' },
+    { status: 403 }
+  );
+}
+
+export function rateLimitResponse(retryAfter: number) {
+  return NextResponse.json(
+    { 
+      error: 'RATE_LIMIT_EXCEEDED', 
+      message: 'Too many requests',
+      retryAfter 
+    },
+    { 
+      status: 429,
+      headers: {
+        'Retry-After': retryAfter.toString(),
+      }
+    }
+  );
 }
 
 /**
- * Validates session from request cookies
+ * Middleware wrapper for API routes with rate limiting
  */
-export async function validateSession(request: NextRequest): Promise<AuthResult> {
-  try {
-    const sessionToken = request.cookies.get('session-token')?.value;
-
-    if (!sessionToken) {
-      return { authenticated: false, user: null, error: 'No session token' };
+export function withRateLimit(
+  handler: (request: NextRequest) => Promise<NextResponse>,
+  limitType: 'API_GENERAL' | 'PAYMENT' | 'FILE_UPLOAD' = 'API_GENERAL'
+) {
+  return async (request: NextRequest) => {
+    // Check rate limit
+    const rateLimit = checkRateLimit(request, limitType);
+    if (!rateLimit.allowed) {
+      logRateLimitExceeded(request.nextUrl.pathname, request);
+      return rateLimitResponse(Math.ceil((rateLimit.resetTime - Date.now()) / 1000));
     }
 
-    const session = await prisma.session.findUnique({
-      where: { sessionToken },
-      include: { user: true },
-    });
+    return handler(request);
+  };
+}
 
-    if (!session || session.expires < new Date()) {
-      return { authenticated: false, user: null, error: 'Session expired' };
+/**
+ * Middleware wrapper for authenticated API routes
+ */
+export function withAuth(
+  handler: (request: NextRequest, user: JWTPayload) => Promise<NextResponse>,
+  allowedRoles?: string[]
+) {
+  return async (request: NextRequest) => {
+    const authResult = await validateSession(request);
+    
+    if (!authResult.authenticated || !authResult.user) {
+      logUnauthorizedAccess(request.nextUrl.pathname, undefined, request);
+      return unauthorizedResponse();
     }
 
-    return {
-      authenticated: true,
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name || '',
-        role: session.user.role,
-      },
-    };
-  } catch (error) {
-    console.error('Session validation error:', error);
-    return { authenticated: false, user: null, error: 'Validation failed' };
-  }
-}
+    if (allowedRoles && !allowedRoles.includes(authResult.user.role)) {
+      logUnauthorizedAccess(request.nextUrl.pathname, authResult.user.userId, request);
+      return forbiddenResponse();
+    }
 
-
-export function unauthorizedResponse(message = 'Unauthorized'): NextResponse {
-  return NextResponse.json({ error: message, code: 'UNAUTHORIZED' }, { status: 401 });
-}
-
-export function forbiddenResponse(message = 'Forbidden'): NextResponse {
-  return NextResponse.json({ error: message, code: 'FORBIDDEN' }, { status: 403 });
-}
-
-export async function requireAuth(request: NextRequest): Promise<{ user: AuthenticatedUser } | NextResponse> {
-  const result = await validateSession(request);
-  if (!result.authenticated || !result.user) {
-    return unauthorizedResponse(result.error);
-  }
-  return { user: result.user };
-}
-
-export async function requireRole(
-  request: NextRequest,
-  allowedRoles: UserRole[]
-): Promise<{ user: AuthenticatedUser } | NextResponse> {
-  const authResult = await requireAuth(request);
-  if (authResult instanceof NextResponse) return authResult;
-  if (!allowedRoles.includes(authResult.user.role)) {
-    return forbiddenResponse('Insufficient permissions');
-  }
-  return authResult;
+    return handler(request, authResult.user);
+  };
 }

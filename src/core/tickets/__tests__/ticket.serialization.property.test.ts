@@ -6,7 +6,11 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { TicketStatus, PaymentStatus, IssueType } from '@prisma/client';
+
+// Status types (SQLite uses strings instead of enums)
+type TicketStatus = 'DRAFT' | 'RECEIVED' | 'IN_REVIEW' | 'NEED_MORE_INFO' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REJECTED';
+type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'REFUNDED';
+type IssueType = 'ACCOUNT_BANNED' | 'ACCOUNT_SUSPENDED' | 'VERIFICATION_ISSUE' | 'HACKED_ACCOUNT' | 'OTHER';
 import {
   serializeTicket,
   deserializeTicket,

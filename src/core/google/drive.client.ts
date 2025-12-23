@@ -4,6 +4,7 @@
  */
 
 import { getGoogleConfig } from '../config/google.config';
+import * as crypto from 'crypto';
 
 export interface DriveFile {
   id: string;
@@ -32,6 +33,14 @@ export interface CreateFolderParams {
 }
 
 /**
+ * Base64URL encode (no padding)
+ */
+function base64UrlEncode(data: string | Buffer): string {
+  const base64 = Buffer.isBuffer(data) ? data.toString('base64') : Buffer.from(data).toString('base64');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
  * Google Drive Client
  * Uses service account credentials for all operations
  * Requirements: 5.5
@@ -49,24 +58,84 @@ export class DriveClient {
   }
 
   /**
-   * Gets or refreshes access token
-   * Note: In production, implement proper JWT signing for service account
+   * Creates a JWT for Google OAuth2
+   */
+  private createJwt(): string {
+    const now = Math.floor(Date.now() / 1000);
+    const expiry = now + 3600; // 1 hour
+
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT',
+    };
+
+    const payload = {
+      iss: this.serviceAccountEmail,
+      scope: 'https://www.googleapis.com/auth/drive',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: expiry,
+    };
+
+    const headerB64 = base64UrlEncode(JSON.stringify(header));
+    const payloadB64 = base64UrlEncode(JSON.stringify(payload));
+    const signatureInput = `${headerB64}.${payloadB64}`;
+
+    // Parse the private key (handle escaped newlines)
+    const privateKey = this.serviceAccountPrivateKey.replace(/\\n/g, '\n');
+
+    // Sign with RSA-SHA256
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(signatureInput);
+    const signature = sign.sign(privateKey);
+    const signatureB64 = base64UrlEncode(signature);
+
+    return `${signatureInput}.${signatureB64}`;
+  }
+
+  /**
+   * Gets or refreshes access token using service account JWT
    */
   private async getAccessToken(): Promise<string> {
+    // Return cached token if still valid
     if (this.accessToken && this.tokenExpiry && this.tokenExpiry > new Date()) {
       return this.accessToken;
     }
 
-    // TODO: Implement proper service account JWT authentication
-    // For now, this is a placeholder that would need the googleapis library
-    // or manual JWT signing implementation
-    
-    // In production:
-    // 1. Create JWT with service account email and private key
-    // 2. Exchange JWT for access token
-    // 3. Cache token until expiry
-    
-    throw new Error('Service account authentication not implemented. Use googleapis library in production.');
+    // Check if credentials are configured
+    if (!this.serviceAccountEmail || !this.serviceAccountPrivateKey) {
+      throw new Error('Google service account credentials not configured');
+    }
+
+    try {
+      const jwt = this.createJwt();
+
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion: jwt,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to get access token: ${error}`);
+      }
+
+      const data = await response.json() as { access_token: string; expires_in: number };
+      
+      this.accessToken = data.access_token;
+      this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000); // Refresh 1 min early
+
+      return this.accessToken;
+    } catch (error) {
+      console.error('Google auth error:', error);
+      throw new Error(`Service account authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

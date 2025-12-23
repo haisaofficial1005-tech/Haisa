@@ -18,6 +18,8 @@ const TicketStatus = {
   REJECTED: 'REJECTED',
 } as const;
 
+type TicketStatusType = typeof TicketStatus[keyof typeof TicketStatus];
+
 const PaymentStatus = {
   PENDING: 'PENDING',
   PAID: 'PAID',
@@ -25,6 +27,8 @@ const PaymentStatus = {
   EXPIRED: 'EXPIRED',
   REFUNDED: 'REFUNDED',
 } as const;
+
+type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
 import { validateTicketInput } from '../validation/validators';
 import type { CreateTicketInput, UpdateTicketInput, TicketWithRelations } from './ticket.types';
 
@@ -228,7 +232,7 @@ export async function getAll(): Promise<TicketWithRelations[]> {
 /**
  * Valid status transitions
  */
-const VALID_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+const VALID_STATUS_TRANSITIONS: Record<TicketStatusType, TicketStatusType[]> = {
   [TicketStatus.DRAFT]: [TicketStatus.RECEIVED],
   [TicketStatus.RECEIVED]: [TicketStatus.IN_REVIEW, TicketStatus.REJECTED],
   [TicketStatus.IN_REVIEW]: [TicketStatus.NEED_MORE_INFO, TicketStatus.IN_PROGRESS, TicketStatus.REJECTED],
@@ -242,7 +246,7 @@ const VALID_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 /**
  * Validates a status transition
  */
-export function isValidStatusTransition(from: TicketStatus, to: TicketStatus): boolean {
+export function isValidStatusTransition(from: TicketStatusType, to: TicketStatusType): boolean {
   return VALID_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
@@ -251,7 +255,7 @@ export function isValidStatusTransition(from: TicketStatus, to: TicketStatus): b
  */
 export async function updateStatus(
   id: string,
-  status: TicketStatus,
+  status: TicketStatusType,
   actorId: string
 ): Promise<TicketWithRelations> {
   const ticket = await prisma.ticket.findUnique({
@@ -263,7 +267,7 @@ export async function updateStatus(
   }
 
   // Validate status transition
-  if (!isValidStatusTransition(ticket.status, status)) {
+  if (!isValidStatusTransition(ticket.status as TicketStatusType, status)) {
     throw new TicketServiceError(
       `Invalid status transition from ${ticket.status} to ${status}`,
       'INVALID_STATUS_TRANSITION'
@@ -354,8 +358,8 @@ export async function updateGoogleSync(
  */
 export async function updatePaymentStatus(
   id: string,
-  paymentStatus: PaymentStatus,
-  newTicketStatus?: TicketStatus
+  paymentStatus: PaymentStatusType,
+  newTicketStatus?: TicketStatusType
 ): Promise<TicketWithRelations> {
   const data: UpdateTicketInput = { paymentStatus };
   

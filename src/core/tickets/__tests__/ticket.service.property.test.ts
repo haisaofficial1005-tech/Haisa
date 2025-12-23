@@ -6,7 +6,30 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { TicketStatus, PaymentStatus, IssueType } from '@prisma/client';
+
+// Status constants (SQLite uses strings instead of enums)
+const TicketStatus = {
+  DRAFT: 'DRAFT',
+  RECEIVED: 'RECEIVED',
+  IN_REVIEW: 'IN_REVIEW',
+  NEED_MORE_INFO: 'NEED_MORE_INFO',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+  REJECTED: 'REJECTED',
+} as const;
+
+const PaymentStatus = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  FAILED: 'FAILED',
+  EXPIRED: 'EXPIRED',
+  REFUNDED: 'REFUNDED',
+} as const;
+
+type TicketStatusType = typeof TicketStatus[keyof typeof TicketStatus];
+type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
+type IssueType = 'ACCOUNT_BANNED' | 'ACCOUNT_SUSPENDED' | 'VERIFICATION_ISSUE' | 'HACKED_ACCOUNT' | 'OTHER';
 import {
   DEFAULT_NUM_RUNS,
   validWhatsAppNumberArb,

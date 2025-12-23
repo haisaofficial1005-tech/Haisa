@@ -16,6 +16,7 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
+  phone         String?   @unique  // Added phone field for WhatsApp-based auth
   role          String    @default("CUSTOMER")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -26,6 +27,7 @@ model User {
   assignedTickets Ticket[]    @relation("AgentTickets")
   attachments     Attachment[]
   auditLogs       AuditLog[]
+  gmailSales      GmailSale[]
 }
 
 model Account {
@@ -108,6 +110,9 @@ model Attachment {
   mimeType      String
   size          Int
   
+  // Temporary storage for file data (base64) before upload to Drive
+  fileData      String?
+  
   driveFileId   String?
   driveFileUrl  String?
   
@@ -142,4 +147,46 @@ model AuditLog {
   after         String
   
   createdAt     DateTime @default(now())
+}
+
+model GmailSale {
+  id                    String   @id @default(uuid())
+  saleNo                String   @unique
+  customerId            String
+  customer              User     @relation(fields: [customerId], references: [id])
+  
+  gmailAddress          String
+  gmailPassword         String   // Original password (will be migrated to encrypted)
+  gmailPasswordEncrypted String? // Encrypted password for secure storage
+  
+  // Metode penerimaan pembayaran
+  paymentMethod         String   // BANK, EWALLET
+  paymentProvider       String   // BCA, BNI, MANDIRI, GOPAY, OVO, DANA, etc
+  paymentAccountNumber  String
+  paymentAccountName    String
+  
+  // QRIS Payment fields
+  qrisAmount            Int?     // Amount with unique code (e.g., 50123 for 50k + 123)
+  qrisUniqueCode        String?  // 2-3 digit unique code (e.g., "123")
+  qrisPaymentProofUrl   String?  // URL bukti transfer QRIS dari customer
+  qrisPaymentProofDriveId String? // Google Drive file ID for proof
+  
+  // Status: PENDING, CHECKING, APPROVED, REJECTED, TRANSFERRED
+  status                String   @default("PENDING")
+  adminNotes            String?
+  proofImageUrl         String?  // URL bukti transfer dari admin
+  
+  // Verification fields for manual checking
+  verificationData      String?  // JSON string of VerificationChecklist
+  verifiedBy            String?  // Admin user ID who verified
+  verifiedAt            DateTime? // When verification was completed
+  rejectionReason       String?  // Reason if rejected
+  suggestedPrice        Int?     // Suggested price based on verification
+  
+  googleDriveFolderId   String?
+  googleDriveFolderUrl  String?
+  googleSheetRowIndex   Int?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }

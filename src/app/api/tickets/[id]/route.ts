@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const user = authResult.user;
 
     // Get ticket with RBAC check
-    const ticket = await getById(id, user.id, user.role);
+    const ticket = await getById(id, user.id, user.role as 'CUSTOMER' | 'AGENT' | 'ADMIN');
 
     if (!ticket) {
       return NextResponse.json(

@@ -61,6 +61,7 @@ export const DEFAULT_SHEET_COLUMNS = [
   'PaymentStatus',
   'AssignedAgent',
   'DriveFolderUrl',
+  'AttachmentUrls',
   'NotesInternal',
   'LastUpdatedAt',
 ];

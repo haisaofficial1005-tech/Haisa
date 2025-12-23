@@ -32,11 +32,11 @@ export class GoogleSyncService {
    * Property 13: Drive Folder Record Persistence
    * Property 14: Sheets Row Index Persistence
    */
-  async syncNewTicket(ticket: TicketWithCustomer): Promise<SyncTicketResult> {
+  async syncNewTicket(ticket: TicketWithCustomer, attachmentUrls?: string[]): Promise<SyncTicketResult> {
     const client = getAppsScriptClient();
 
-    // Build payload for Apps Script
-    const payload = this.buildTicketCreatedPayload(ticket);
+    // Build payload for Apps Script with attachment URLs
+    const payload = this.buildTicketCreatedPayload(ticket, attachmentUrls);
 
     // Call Apps Script to create folder and append row
     const result = await client.ticketCreated(payload);
@@ -58,7 +58,7 @@ export class GoogleSyncService {
    * Syncs ticket updates to Google Sheets
    * Requirements: 6.3
    */
-  async syncTicketUpdate(ticket: TicketWithCustomer): Promise<void> {
+  async syncTicketUpdate(ticket: TicketWithCustomer, attachmentUrls?: string[]): Promise<void> {
     if (!ticket.googleSheetRowIndex) {
       throw new Error('Ticket has not been synced to Google Sheets yet');
     }
@@ -71,6 +71,7 @@ export class GoogleSyncService {
       status: ticket.status,
       paymentStatus: ticket.paymentStatus,
       assignedAgent: ticket.assignedAgent?.name || null,
+      attachmentUrls: attachmentUrls,
       notesInternal: ticket.notesInternal,
       lastUpdatedAt: ticket.updatedAt.toISOString(),
     };
@@ -82,11 +83,11 @@ export class GoogleSyncService {
    * Builds the payload for ticket creation sync
    * Property 15: Sheets Sync Payload Completeness
    */
-  buildTicketCreatedPayload(ticket: TicketWithCustomer): TicketCreatedPayload {
+  buildTicketCreatedPayload(ticket: TicketWithCustomer, attachmentUrls?: string[]): TicketCreatedPayload {
     return {
       ticketNo: ticket.ticketNo,
       createdAt: ticket.createdAt.toISOString(),
-      customerName: ticket.customer.name,
+      customerName: ticket.customer.name || 'Unknown',
       customerEmail: ticket.customer.email,
       whatsAppNumber: ticket.whatsAppNumber,
       countryRegion: ticket.countryRegion,
@@ -98,6 +99,7 @@ export class GoogleSyncService {
       paymentStatus: ticket.paymentStatus,
       assignedAgent: ticket.assignedAgent?.name || null,
       driveFolderUrl: ticket.googleDriveFolderUrl,
+      attachmentUrls: attachmentUrls || null,
       notesInternal: ticket.notesInternal,
       lastUpdatedAt: ticket.updatedAt.toISOString(),
     };

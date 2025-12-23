@@ -45,9 +45,10 @@ export const DEFAULT_RATE_LIMIT: RateLimitConfig = {
 function cleanupExpiredEntries(windowMs: number): void {
   const now = Date.now();
   
-  for (const [key, entry] of rateLimitStore.entries()) {
+  const entries = Array.from(rateLimitStore.entries());
+  for (const [key, entry] of entries) {
     // Filter out timestamps outside the window
-    entry.timestamps = entry.timestamps.filter(ts => now - ts < windowMs);
+    entry.timestamps = entry.timestamps.filter((ts: number) => now - ts < windowMs);
     
     // Remove entry if no timestamps remain
     if (entry.timestamps.length === 0) {

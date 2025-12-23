@@ -152,24 +152,62 @@ export class AttachmentService {
   /**
    * Uploads pending attachments to Drive after payment
    * Called when ticket payment is confirmed
+   * Returns array of uploaded attachment URLs
    */
-  async uploadPendingToDrive(ticket: Ticket & { attachments: Attachment[] }): Promise<void> {
+  async uploadPendingToDrive(ticket: Ticket & { attachments: Attachment[] }): Promise<string[]> {
     if (!ticket.googleDriveFolderId) {
       throw new Error('Ticket has no Drive folder');
     }
 
     const driveClient = createDriveClient();
+    const uploadedUrls: string[] = [];
 
     for (const attachment of ticket.attachments) {
       // Skip if already uploaded
       if (attachment.driveFileId) {
+        if (attachment.driveFileUrl) {
+          uploadedUrls.push(attachment.driveFileUrl);
+        }
         continue;
       }
 
-      // Note: In production, you'd need to retrieve the file content
-      // This is a placeholder for the upload logic
-      console.log(`Would upload attachment ${attachment.id} to Drive folder ${ticket.googleDriveFolderId}`);
+      // Skip if no file data stored
+      if (!attachment.fileData) {
+        console.warn(`Attachment ${attachment.id} has no file data to upload`);
+        continue;
+      }
+
+      try {
+        // Convert base64 back to buffer
+        const fileBuffer = Buffer.from(attachment.fileData, 'base64');
+
+        // Upload to Drive
+        const driveFile = await driveClient.uploadFile({
+          folderId: ticket.googleDriveFolderId,
+          file: fileBuffer,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+        });
+
+        // Update attachment with Drive info and clear fileData
+        await prisma.attachment.update({
+          where: { id: attachment.id },
+          data: {
+            driveFileId: driveFile.id,
+            driveFileUrl: driveFile.url,
+            fileData: null, // Clear temporary file data after successful upload
+          },
+        });
+
+        uploadedUrls.push(driveFile.url);
+        console.log(`Uploaded attachment ${attachment.id} to Drive: ${driveFile.url}`);
+      } catch (error) {
+        console.error(`Failed to upload attachment ${attachment.id} to Drive:`, error);
+        // Continue with other attachments even if one fails
+      }
     }
+
+    return uploadedUrls;
   }
 
   /**

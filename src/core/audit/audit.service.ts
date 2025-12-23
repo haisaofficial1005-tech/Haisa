@@ -44,8 +44,8 @@ export class AuditService {
         actorId: entry.actorId,
         ticketId: entry.ticketId,
         action: entry.action,
-        before: entry.before as object | null,
-        after: entry.after as object,
+        before: entry.before ? JSON.stringify(entry.before) : null,
+        after: JSON.stringify(entry.after),
       },
     });
   }

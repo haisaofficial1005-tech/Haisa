@@ -119,7 +119,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
   // Check ownership
   if (ticket.customerId !== user.id) {
-    redirect('/customer/dashboard');
+    redirect('/customer/tickets');
   }
 
   const canUploadAttachments = ticket.paymentStatus === 'PAID' && ticket.attachments.length < 5;
@@ -129,8 +129,8 @@ export default async function TicketDetailPage({ params }: PageProps) {
       {/* Header */}
       <header className="bg-slate-800/50 border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <Link href="/customer/dashboard" className="text-blue-400 hover:text-blue-300 text-sm">
-            ← Kembali ke Dashboard
+          <Link href="/customer/tickets" className="text-blue-400 hover:text-blue-300 text-sm">
+            ← Kembali ke Riwayat Tiket
           </Link>
         </div>
       </header>

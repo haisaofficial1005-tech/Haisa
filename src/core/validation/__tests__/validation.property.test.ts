@@ -18,28 +18,38 @@ import {
   REQUIRED_TICKET_FIELDS,
   type CreateTicketInput,
 } from '../validators';
-import type { IssueType } from '@prisma/client';
+
+// Type alias (SQLite uses strings instead of enums)
+type IssueType = 'ACCOUNT_BANNED' | 'ACCOUNT_SUSPENDED' | 'VERIFICATION_ISSUE' | 'HACKED_ACCOUNT' | 'OTHER';
 
 // Arbitraries - optimized for speed (no filters)
 const validCountryCodeArb = fc.integer({ min: 1, max: 999 });
 
 // Generate valid phone numbers that match the validator's requirements
-// Total length must be 8-17 characters including +
-// Format: +[country code 1-3 digits][number 7-14 digits]
-const validWhatsAppNumberArb = fc.tuple(
-  fc.integer({ min: 1, max: 99 }), // country code (1-2 digits to keep total length reasonable)
-  fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 7, maxLength: 12 }) // phone digits
-).map(([cc, digits]) => `+${cc}${digits.join('')}`);
+// Format: optional + followed by 10-15 digits starting with non-zero
+const validWhatsAppNumberArb = fc.oneof(
+  // With + prefix
+  fc.tuple(
+    fc.integer({ min: 1, max: 9 }), // first digit (non-zero)
+    fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 9, maxLength: 14 }) // rest of digits
+  ).map(([first, rest]) => `+${first}${rest.join('')}`),
+  // Without + prefix
+  fc.tuple(
+    fc.integer({ min: 1, max: 9 }), // first digit (non-zero)
+    fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 9, maxLength: 14 }) // rest of digits
+  ).map(([first, rest]) => `${first}${rest.join('')}`)
+);
 
 const invalidWhatsAppNumberArb = fc.constantFrom(
   '',
-  '12345',
+  '12345', // too short (only 5 digits)
   'abc123',
-  '6281234567890', // missing +
+  '0123456789', // starts with 0
   '+1', // too short
   '+abc123',
   'invalid',
   '+',
+  '123456789', // only 9 digits (need 10+)
 );
 
 const issueTypeArb = fc.constantFrom<IssueType>(
@@ -127,16 +137,17 @@ describe('WhatsApp Number Validation', () => {
   /**
    * **Feature: haisa-wa, Property 5: WhatsApp Number Validation**
    * 
-   * Property 5c: Numbers without + prefix are rejected
+   * Property 5c: Numbers without + prefix are also valid (10-15 digits starting with non-zero)
    */
-  it('Property 5c: numbers without + prefix are rejected', () => {
+  it('Property 5c: numbers without + prefix are valid if 10-15 digits', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 8, maxLength: 15 })
-          .map(digits => digits.join('')),
-        (number) => {
+        fc.integer({ min: 1, max: 9 }),
+        fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 9, maxLength: 14 }),
+        (firstDigit, restDigits) => {
+          const number = firstDigit.toString() + restDigits.join('');
           const isValid = isValidWhatsAppNumber(number);
-          expect(isValid).toBe(false);
+          expect(isValid).toBe(true);
         }
       ),
       { numRuns: 50 }

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/core/db';
 import { validateSession, unauthorizedResponse } from '@/core/auth/middleware';
-import { canAccessTicket, buildTicketWhereClause } from '@/core/auth/rbac';
+import { buildTicketWhereClause } from '@/core/auth/rbac';
 import { createDraft } from '@/core/tickets/ticket.service';
 import { paymentService } from '@/core/payment/payment.service';
 import { 
@@ -14,26 +14,12 @@ import {
   validateDescription, 
 } from '@/core/validation/validators';
 
-// Type alias (SQLite uses strings instead of enums)
-type IssueType = string;
-
-interface CreateTicketBody {
-  whatsAppNumber: string;
-  countryRegion: string;
-  issueType: IssueType;
-  incidentAt: string;
-  device: string;
-  waVersion: string;
-  description: string;
-}
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/tickets
- * Creates a new ticket draft and payment order
- * Requirements: 2.1, 2.2, 2.3
+ * Creates a new ticket draft with screenshots
  */
-export const dynamic = 'force-dynamic';
-
 export async function POST(request: NextRequest) {
   try {
     // Validate authentication
@@ -42,69 +28,102 @@ export async function POST(request: NextRequest) {
       return unauthorizedResponse();
     }
 
-    const body = await request.json() as CreateTicketBody;
+    // Parse FormData
+    const formData = await request.formData();
+    
+    const whatsAppNumber = formData.get('whatsAppNumber') as string;
+    const countryRegion = formData.get('countryRegion') as string;
+    const issueType = formData.get('issueType') as string;
+    const incidentAt = formData.get('incidentAt') as string;
+    const device = formData.get('device') as string;
+    const description = formData.get('description') as string;
 
-    // Validate required fields (Property 7)
-    const requiredFields = [
-      'whatsAppNumber',
-      'countryRegion',
-      'issueType',
-      'incidentAt',
-      'device',
-      'waVersion',
-      'description',
-    ];
+    // Collect screenshot files
+    const screenshots: File[] = [];
+    for (let i = 0; i < 5; i++) {
+      const file = formData.get(`screenshot_${i}`) as File | null;
+      if (file && file.size > 0) {
+        screenshots.push(file);
+      }
+    }
+
+    // Validate required fields
+    const errors: string[] = [];
+    if (!whatsAppNumber) errors.push('whatsAppNumber');
+    if (!countryRegion) errors.push('countryRegion');
+    if (!issueType) errors.push('issueType');
+    if (!incidentAt) errors.push('incidentAt');
+    if (!device) errors.push('device');
+    if (!description) errors.push('description');
     
-    const missingFields = requiredFields.filter(
-      field => !body[field as keyof CreateTicketBody]
-    );
-    
-    if (missingFields.length > 0) {
+    if (errors.length > 0) {
       return NextResponse.json(
-        { error: 'MISSING_REQUIRED_FIELD', fields: missingFields },
+        { error: 'MISSING_REQUIRED_FIELD', fields: errors, message: 'Field wajib tidak lengkap' },
         { status: 400 }
       );
     }
 
-    // Validate WhatsApp number (Property 5)
-    if (!isValidWhatsAppNumber(body.whatsAppNumber)) {
+    // Validate WhatsApp number
+    if (!isValidWhatsAppNumber(whatsAppNumber)) {
       return NextResponse.json(
-        { error: 'INVALID_WA_NUMBER', message: 'Invalid WhatsApp number format' },
+        { error: 'INVALID_WA_NUMBER', message: 'Format nomor WhatsApp tidak valid' },
         { status: 400 }
       );
     }
 
-    // Validate description for sensitive keywords (Property 6)
-    const descriptionValidation = validateDescription(body.description);
+    // Validate description
+    const descriptionValidation = validateDescription(description);
     if (!descriptionValidation.valid) {
       return NextResponse.json(
-        { 
-          error: 'SENSITIVE_CONTENT', 
-          message: descriptionValidation.errors[0]?.message || 'Description contains blocked keywords',
-        },
+        { error: 'SENSITIVE_CONTENT', message: descriptionValidation.errors[0]?.message || 'Deskripsi mengandung kata terlarang' },
         { status: 400 }
       );
     }
 
-    // Create ticket draft (Property 2: Initial State)
+    // Require at least 1 screenshot
+    if (screenshots.length === 0) {
+      return NextResponse.json(
+        { error: 'NO_SCREENSHOTS', message: 'Minimal 1 screenshot wajib diunggah' },
+        { status: 400 }
+      );
+    }
+
+    // Create ticket draft
     const ticket = await createDraft({
       customerId: authResult.user.id,
-      whatsAppNumber: body.whatsAppNumber,
-      countryRegion: body.countryRegion,
-      issueType: body.issueType,
-      incidentAt: new Date(body.incidentAt),
-      device: body.device,
-      waVersion: body.waVersion,
-      description: body.description,
+      whatsAppNumber,
+      countryRegion,
+      issueType,
+      incidentAt: new Date(incidentAt),
+      device,
+      waVersion: '-', // Not required anymore
+      description,
     });
 
-    // Create payment order (Property 4: Ticket-Payment Association)
-    const { payment, paymentOrder } = await paymentService.createOrder({
+    // Store screenshots with file data (base64) for later upload to Drive
+    for (const file of screenshots) {
+      const arrayBuffer = await file.arrayBuffer();
+      const base64Data = Buffer.from(arrayBuffer).toString('base64');
+      
+      await prisma.attachment.create({
+        data: {
+          ticketId: ticket.id,
+          uploaderId: authResult.user.id,
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size,
+          fileData: base64Data, // Store file data temporarily until uploaded to Drive
+        },
+      });
+    }
+
+    // Create payment order
+    const { paymentOrder } = await paymentService.createOrder({
       ticketId: ticket.id,
-      amount: 50000, // Fixed amount in IDR
+      amount: 49500,
       customerEmail: authResult.user.email,
       customerName: authResult.user.name,
-      description: `Payment for ticket ${ticket.ticketNo}`,
+      description: `Pembayaran tiket ${ticket.ticketNo}`,
     });
 
     return NextResponse.json({
@@ -127,7 +146,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating ticket:', error);
     return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: 'Failed to create ticket' },
+      { error: 'INTERNAL_ERROR', message: 'Gagal membuat tiket' },
       { status: 500 }
     );
   }
@@ -136,26 +155,57 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/tickets
  * Lists tickets for the current user
- * Requirements: 7.1, 7.2
- * Property 17: RBAC Access Control
- * Property 18: Ticket List Response Fields
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validate authentication
     const authResult = await validateSession(request);
     if (!authResult.authenticated || !authResult.user) {
       return unauthorizedResponse();
     }
 
-    const user = authResult.user;
+    // Get all tickets with related data for admin/ops/agent
+    if (['ADMIN', 'OPS', 'AGENT'].includes(authResult.user.role)) {
+      const tickets = await prisma.ticket.findMany({
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          assignedAgent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              orderId: true,
+              amount: true,
+              status: true,
+              provider: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    // Build where clause based on role (Property 17)
-    const whereClause = buildTicketWhereClause(user);
+      return NextResponse.json({
+        success: true,
+        tickets,
+      });
+    }
 
-    // Get tickets with required fields (Property 18)
+    // For customers, only show their own tickets
     const tickets = await prisma.ticket.findMany({
-      where: whereClause,
+      where: {
+        customer: {
+          phone: authResult.user.phone,
+        },
+      },
       select: {
         id: true,
         ticketNo: true,
@@ -167,11 +217,7 @@ export async function GET(request: NextRequest) {
         countryRegion: true,
         assignedAgentId: true,
         customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, phone: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -182,7 +228,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error listing tickets:', error);
     return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: 'Failed to list tickets' },
+      { error: 'INTERNAL_ERROR', message: 'Gagal memuat tiket' },
       { status: 500 }
     );
   }

@@ -169,8 +169,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return forbiddenResponse('You cannot update the status of this ticket');
       }
 
-      // Validate status transition
-      if (!isValidStatusTransition(ticket.status, body.status)) {
+      // Validate status transition (cast to any to avoid type issues with string enums)
+      if (!isValidStatusTransition(ticket.status as never, body.status as never)) {
         return NextResponse.json(
           { 
             error: 'INVALID_STATUS_TRANSITION', 
@@ -181,7 +181,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const previousStatus = ticket.status;
-      updatedTicket = await updateStatus(id, body.status, user.id);
+      updatedTicket = await updateStatus(id, body.status as never, user.id) as typeof ticket;
       
       // Log status change (Requirements: 11.2)
       await auditService.logStatusChange(user.id, id, previousStatus, body.status);
@@ -209,7 +209,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const previousAgentId = ticket.assignedAgentId;
-      updatedTicket = await assignAgent(id, body.assignedAgentId, user.id);
+      updatedTicket = await assignAgent(id, body.assignedAgentId, user.id) as typeof ticket;
       
       // Log assignment change (Requirements: 11.3)
       await auditService.logAssignmentChange(user.id, id, previousAgentId, body.assignedAgentId);
@@ -219,7 +219,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Handle internal notes update
     if (body.notesInternal !== undefined && body.notesInternal !== ticket.notesInternal) {
       const previousNotes = ticket.notesInternal;
-      updatedTicket = await addInternalNotes(id, body.notesInternal, user.id);
+      updatedTicket = await addInternalNotes(id, body.notesInternal, user.id) as typeof ticket;
       
       // Log note addition
       await auditService.logNoteAdded(user.id, id, previousNotes, body.notesInternal);
@@ -233,6 +233,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           ticketNo: ticket.ticketNo,
           rowIndex: ticket.googleSheetRowIndex,
           status: updatedTicket.status,
+          paymentStatus: updatedTicket.paymentStatus,
           assignedAgent: updatedTicket.assignedAgent?.name || null,
           notesInternal: updatedTicket.notesInternal || null,
           lastUpdatedAt: new Date().toISOString(),

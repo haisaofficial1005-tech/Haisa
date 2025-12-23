@@ -1,29 +1,28 @@
 /**
  * Logout API
+ * Clears session cookie
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/core/db';
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const sessionToken = request.cookies.get('session-token')?.value;
+    // Clear session cookie
+    const cookieStore = cookies();
+    cookieStore.delete('haisa-session');
 
-    if (sessionToken) {
-      await prisma.session.deleteMany({
-        where: { sessionToken },
-      });
-    }
-
-    // Redirect to login page after logout
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('session-token');
-    return response;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.json(
+      { success: false, error: 'Terjadi kesalahan server' },
+      { status: 500 }
+    );
   }
+}
+
+export async function GET() {
+  // Support GET for logout links
+  return POST();
 }

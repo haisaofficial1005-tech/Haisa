@@ -20,6 +20,7 @@ export interface TicketCreatedPayload {
   paymentStatus: string;
   assignedAgent: string | null;
   driveFolderUrl: string | null;
+  attachmentUrls: string[] | null; // Links to uploaded attachments in Drive
   notesInternal: string | null;
   lastUpdatedAt: string;
 }
@@ -30,6 +31,7 @@ export interface TicketUpdatedPayload {
   status: string;
   paymentStatus: string;
   assignedAgent: string | null;
+  attachmentUrls?: string[] | null;
   notesInternal: string | null;
   lastUpdatedAt: string;
 }

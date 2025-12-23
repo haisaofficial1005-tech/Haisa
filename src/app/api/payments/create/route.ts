@@ -1,13 +1,12 @@
 /**
- * Payment Creation API Route
- * Requirements: 4.1
+ * Payment Creation API Route - QRIS Implementation
+ * Creates QRIS payment for tickets
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/core/db';
 import { validateSession, unauthorizedResponse, forbiddenResponse } from '@/core/auth/middleware';
-import { canAccessTicket } from '@/core/auth/rbac';
-import { paymentService } from '@/core/payment/payment.service';
+import { generateQrisUniqueCode, calculateQrisAmount, getGmailSaleBasePrice } from '@/core/payment/qris';
 
 interface CreatePaymentBody {
   ticketId: string;
@@ -17,8 +16,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/payments/create
- * Creates a payment order for a ticket
- * Requirements: 4.1
+ * Creates a QRIS payment for a ticket
  */
 export async function POST(request: NextRequest) {
   try {
@@ -72,13 +70,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create payment order
-    const { payment, paymentOrder } = await paymentService.createOrder({
-      ticketId: ticket.id,
-      amount: 50000, // Fixed amount in IDR
-      customerEmail: ticket.customer.email,
-      customerName: ticket.customer.name,
-      description: `Payment for ticket ${ticket.ticketNo}`,
+    // Check if there's already a pending payment
+    const existingPayment = await prisma.payment.findFirst({
+      where: {
+        ticketId: ticket.id,
+        status: 'PENDING',
+      },
+    });
+
+    if (existingPayment) {
+      // Parse rawPayload to get QRIS data
+      let qrisData = { uniqueCode: '', baseAmount: 50000 };
+      try {
+        qrisData = JSON.parse(existingPayment.rawPayload || '{}');
+      } catch (error) {
+        console.error('Error parsing existing payment rawPayload:', error);
+      }
+
+      return NextResponse.json({
+        payment: {
+          id: existingPayment.id,
+          orderId: existingPayment.orderId,
+          amount: existingPayment.amount,
+          currency: existingPayment.currency,
+          status: existingPayment.status,
+        },
+        paymentMethod: 'QRIS',
+        qrisAmount: existingPayment.amount,
+        qrisUniqueCode: qrisData.uniqueCode,
+        baseAmount: qrisData.baseAmount,
+        message: 'Payment already exists',
+      });
+    }
+
+    // Generate QRIS payment data
+    const baseAmount = getGmailSaleBasePrice(); // 50,000 IDR
+    const uniqueCode = generateQrisUniqueCode();
+    const totalAmount = calculateQrisAmount(baseAmount, uniqueCode);
+
+    // Create payment record
+    const payment = await prisma.payment.create({
+      data: {
+        ticketId: ticket.id,
+        provider: 'QRIS',
+        orderId: `QRIS-${ticket.ticketNo}-${Date.now()}`,
+        amount: totalAmount,
+        currency: 'IDR',
+        status: 'PENDING',
+        rawPayload: JSON.stringify({
+          baseAmount,
+          uniqueCode,
+          totalAmount,
+          paymentMethod: 'QRIS',
+        }),
+      },
     });
 
     return NextResponse.json({
@@ -89,14 +134,17 @@ export async function POST(request: NextRequest) {
         currency: payment.currency,
         status: payment.status,
       },
-      paymentUrl: paymentOrder.paymentUrl,
-      expiresAt: paymentOrder.expiresAt,
+      paymentMethod: 'QRIS',
+      qrisAmount: totalAmount,
+      qrisUniqueCode: uniqueCode,
+      baseAmount,
+      message: 'QRIS payment created successfully',
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Error creating payment:', error);
+    console.error('Error creating QRIS payment:', error);
     return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: 'Failed to create payment' },
+      { error: 'INTERNAL_ERROR', message: 'Failed to create QRIS payment' },
       { status: 500 }
     );
   }

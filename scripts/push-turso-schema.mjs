@@ -122,6 +122,28 @@ CREATE TABLE IF NOT EXISTS AuditLog (
   FOREIGN KEY (actorId) REFERENCES User(id),
   FOREIGN KEY (ticketId) REFERENCES Ticket(id)
 );
+
+-- GmailSale table
+CREATE TABLE IF NOT EXISTS GmailSale (
+  id TEXT PRIMARY KEY,
+  saleNo TEXT UNIQUE NOT NULL,
+  customerId TEXT NOT NULL,
+  gmailAddress TEXT NOT NULL,
+  gmailPassword TEXT NOT NULL,
+  paymentMethod TEXT NOT NULL,
+  paymentProvider TEXT NOT NULL,
+  paymentAccountNumber TEXT NOT NULL,
+  paymentAccountName TEXT NOT NULL,
+  status TEXT DEFAULT 'PENDING',
+  adminNotes TEXT,
+  proofImageUrl TEXT,
+  googleDriveFolderId TEXT,
+  googleDriveFolderUrl TEXT,
+  googleSheetRowIndex INTEGER,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customerId) REFERENCES User(id)
+);
 `;
 
 async function pushSchema() {

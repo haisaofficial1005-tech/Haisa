@@ -89,9 +89,11 @@ export const VALID_ISSUE_TYPES: IssueType[] = [
 // ============================================================================
 
 /**
- * Validates a WhatsApp number in international format
- * Valid format: +[country code][number] where number is 7-15 digits
- * Examples: +6281234567890, +14155551234
+ * Validates a WhatsApp number
+ * Valid formats:
+ * - With +: +6281234567890, +14155551234
+ * - Without +: 6281234567890, 14155551234
+ * - Minimum 10 digits, maximum 15 digits
  * 
  * @param number - The WhatsApp number to validate
  * @returns true if valid, false otherwise
@@ -101,11 +103,11 @@ export function isValidWhatsAppNumber(number: string): boolean {
     return false;
   }
 
-  // International format: + followed by country code (1-3 digits) and number (7-14 digits)
-  // Total length: 8-17 characters including the +
-  const internationalFormat = /^\+[1-9]\d{7,14}$/;
+  // Remove + if present, then check if it's 10-15 digits starting with non-zero
+  const cleaned = number.replace(/^\+/, '');
+  const validFormat = /^[1-9]\d{9,14}$/;
   
-  return internationalFormat.test(number);
+  return validFormat.test(cleaned);
 }
 
 /**
