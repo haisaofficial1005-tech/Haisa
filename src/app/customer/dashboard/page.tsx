@@ -7,6 +7,9 @@ import { getSession } from '@/core/auth/session';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default async function CustomerDashboard() {
   const session = await getSession();
 

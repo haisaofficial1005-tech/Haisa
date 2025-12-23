@@ -8,6 +8,9 @@ import { prisma } from '@/core/db';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-500 text-white',
   RECEIVED: 'bg-blue-500 text-white',

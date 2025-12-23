@@ -8,6 +8,9 @@ import { gmailSaleOperations } from '@/core/db/gmail-sale';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 interface GmailSaleItem {
   id: string;
   saleNo: string;

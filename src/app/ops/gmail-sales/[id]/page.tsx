@@ -8,6 +8,9 @@ import { gmailSaleOperations, VerificationChecklist } from '@/core/db/gmail-sale
 import { notFound } from 'next/navigation';
 import GmailSaleDetailClient from './client';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 interface GmailSaleDetail {
   id: string;
   saleNo: string;

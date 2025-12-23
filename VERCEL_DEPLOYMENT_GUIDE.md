@@ -3,6 +3,23 @@
 ## ✅ Status Push ke GitHub
 Semua file telah berhasil di-push ke GitHub repository. Total 121 files dengan 16,833 insertions.
 
+## 🚨 CRITICAL: Database Connection Fix
+
+**Error yang terjadi**: `SERVER_ERROR: Server returned HTTP status 401`
+
+**Penyebab**: Environment variables Turso belum dikonfigurasi dengan benar di Vercel.
+
+**Solusi**:
+1. Pastikan environment variables berikut sudah diset di Vercel Dashboard:
+   ```
+   TURSO_DATABASE_URL=libsql://haisa-sulthonaj.aws-ap-northeast-1.turso.io
+   TURSO_AUTH_TOKEN=your-turso-token-from-env-vercel-file
+   ```
+
+2. **PENTING**: Jangan gunakan `DATABASE_URL` untuk Turso, gunakan `TURSO_DATABASE_URL` dan `TURSO_AUTH_TOKEN`
+
+3. Redeploy setelah environment variables diset
+
 ## 🚀 Langkah Deployment ke Vercel
 
 ### 1. Import Project ke Vercel

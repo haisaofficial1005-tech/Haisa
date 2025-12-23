@@ -13,18 +13,31 @@ const globalForPrisma = globalThis as unknown as {
 
 function initializePrisma(): PrismaClient {
   const nodeEnv = process.env.NODE_ENV;
-  const databaseUrl = process.env.DATABASE_URL;
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  const localUrl = process.env.DATABASE_URL;
 
   console.log('DB Init - NODE_ENV:', nodeEnv);
-  console.log('DB Init - DATABASE_URL:', databaseUrl ? 'SET' : 'NOT_SET');
+  console.log('DB Init - TURSO_DATABASE_URL:', tursoUrl ? 'SET' : 'NOT_SET');
+  console.log('DB Init - TURSO_AUTH_TOKEN:', tursoToken ? 'SET' : 'NOT_SET');
 
-  // Use local SQLite for now
-  const dbUrl = databaseUrl || 'file:./prisma/dev.db';
-  console.log('DB Init - Using database:', dbUrl);
+  let adapter: PrismaLibSql;
 
-  const adapter = new PrismaLibSql({
-    url: dbUrl,
-  });
+  // Use Turso in production or when explicitly configured
+  if (tursoUrl && tursoToken) {
+    console.log('DB Init - Using Turso database:', tursoUrl);
+    adapter = new PrismaLibSql({
+      url: tursoUrl,
+      authToken: tursoToken,
+    });
+  } else {
+    // Fallback to local SQLite for development
+    const dbUrl = localUrl || 'file:./prisma/dev.db';
+    console.log('DB Init - Using local database:', dbUrl);
+    adapter = new PrismaLibSql({
+      url: dbUrl,
+    });
+  }
 
   const client = new PrismaClient({
     adapter,

@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { gmailSaleOperations } from '@/core/db/gmail-sale';
 import GmailSalesAdminClient from './client';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 interface GmailSaleWithCustomer {
   id: string;
   saleNo: string;
