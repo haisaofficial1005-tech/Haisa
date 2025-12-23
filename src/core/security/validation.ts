@@ -1,15 +1,18 @@
 /**
  * Input Validation & Sanitization
- * Secure input handling without OTP dependency
+ * Secure input handling without heavy dependencies
  */
 
 import { z } from 'zod';
-import DOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
 
-// Setup DOMPurify for server-side
-const window = new JSDOM('').window;
-const purify = DOMPurify(window);
+// Simple HTML sanitization without external dependencies
+function stripHtml(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/&[^;]+;/g, '') // Remove HTML entities
+    .replace(/[<>\"'&]/g, '') // Remove dangerous characters
+    .trim();
+}
 
 // Validation schemas
 export const phoneSchema = z.string()
@@ -44,16 +47,10 @@ export function sanitizeString(input: string): string {
   if (!input) return '';
   
   // Remove HTML tags and dangerous characters
-  const cleaned = purify.sanitize(input, { 
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [] 
-  });
+  const cleaned = stripHtml(input);
   
-  // Additional cleaning
-  return cleaned
-    .replace(/[<>\"']/g, '') // Remove remaining dangerous chars
-    .trim()
-    .substring(0, 2000); // Limit length
+  // Additional cleaning and length limit
+  return cleaned.substring(0, 2000);
 }
 
 export function sanitizePhone(phone: string): string {
