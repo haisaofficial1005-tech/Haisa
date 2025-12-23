@@ -86,13 +86,13 @@ export function validateLoginInput(phone: string, name?: string) {
   
   const phoneResult = phoneSchema.safeParse(sanitizedPhone);
   if (!phoneResult.success) {
-    throw new Error(phoneResult.error.errors[0].message);
+    throw new Error(phoneResult.error.issues[0].message);
   }
   
   if (sanitizedName) {
     const nameResult = nameSchema.safeParse(sanitizedName);
     if (!nameResult.success) {
-      throw new Error(nameResult.error.errors[0].message);
+      throw new Error(nameResult.error.issues[0].message);
     }
   }
   
@@ -105,7 +105,7 @@ export function validateLoginInput(phone: string, name?: string) {
 export function validatePaymentAmount(amount: number) {
   const result = amountSchema.safeParse(amount);
   if (!result.success) {
-    throw new Error(result.error.errors[0].message);
+    throw new Error(result.error.issues[0].message);
   }
   return amount;
 }
@@ -114,7 +114,7 @@ export function validateTicketDescription(description: string) {
   const sanitized = sanitizeString(description);
   const result = ticketDescriptionSchema.safeParse(sanitized);
   if (!result.success) {
-    throw new Error(result.error.errors[0].message);
+    throw new Error(result.error.issues[0].message);
   }
   return sanitized;
 }
