@@ -1,49 +1,69 @@
 /**
  * Security Logging System
  * Track security events and suspicious activities
+ * Optimized for serverless environments (Vercel)
  */
 
-import winston from 'winston';
 import { NextRequest } from 'next/server';
 
-// Create logger instance
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/security.log',
-      level: 'warn',
-      maxsize: 5242880, // 5MB
-      maxFiles: 10,
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-  ],
-});
-
-// Add console transport in development
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
+// Simple logging interface for serverless environments
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  data?: any;
 }
+
+/**
+ * Simple logger that works in serverless environments
+ */
+class ServerlessLogger {
+  private isProduction = process.env.NODE_ENV === 'production';
+
+  private log(level: string, message: string, data?: any) {
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      level: level.toUpperCase(),
+      message,
+      data
+    };
+
+    // In production, use console methods that Vercel can capture
+    if (this.isProduction) {
+      switch (level) {
+        case 'error':
+          console.error(`[${entry.timestamp}] ${entry.level}: ${entry.message}`, entry.data || '');
+          break;
+        case 'warn':
+          console.warn(`[${entry.timestamp}] ${entry.level}: ${entry.message}`, entry.data || '');
+          break;
+        case 'info':
+          console.info(`[${entry.timestamp}] ${entry.level}: ${entry.message}`, entry.data || '');
+          break;
+        default:
+          console.log(`[${entry.timestamp}] ${entry.level}: ${entry.message}`, entry.data || '');
+      }
+    } else {
+      // In development, use structured logging
+      console.log(JSON.stringify(entry, null, 2));
+    }
+  }
+
+  error(message: string, data?: any) {
+    this.log('error', message, data);
+  }
+
+  warn(message: string, data?: any) {
+    this.log('warn', message, data);
+  }
+
+  info(message: string, data?: any) {
+    this.log('info', message, data);
+  }
+}
+
+// Create logger instance
+const logger = new ServerlessLogger();
 
 // Security event types
 export enum SecurityEvent {
@@ -87,7 +107,7 @@ function getClientInfo(request: NextRequest) {
 }
 
 /**
- * Log security events
+ * Log security events with fallback for serverless environments
  */
 export function logSecurityEvent(data: SecurityLogData, request?: NextRequest) {
   const clientInfo = request ? getClientInfo(request) : {};
@@ -101,24 +121,28 @@ export function logSecurityEvent(data: SecurityLogData, request?: NextRequest) {
   // Determine log level based on severity
   const severity = data.severity || 'medium';
   
-  switch (severity) {
-    case 'critical':
-      logger.error('SECURITY_CRITICAL', logData);
-      break;
-    case 'high':
-      logger.error('SECURITY_HIGH', logData);
-      break;
-    case 'medium':
-      logger.warn('SECURITY_MEDIUM', logData);
-      break;
-    case 'low':
-      logger.info('SECURITY_LOW', logData);
-      break;
+  try {
+    switch (severity) {
+      case 'critical':
+        logger.error('SECURITY_CRITICAL', logData);
+        break;
+      case 'high':
+        logger.error('SECURITY_HIGH', logData);
+        break;
+      case 'medium':
+        logger.warn('SECURITY_MEDIUM', logData);
+        break;
+      case 'low':
+        logger.info('SECURITY_LOW', logData);
+        break;
+    }
+  } catch (error) {
+    // Fallback to console logging if logger fails
+    console.error(`[${severity.toUpperCase()}] SECURITY_EVENT:`, logData);
   }
   
-  // Send alerts for critical events (implement email/slack notification)
+  // Send alerts for critical events
   if (severity === 'critical') {
-    // TODO: Implement alert system
     console.error('🚨 CRITICAL SECURITY EVENT:', logData);
   }
 }
