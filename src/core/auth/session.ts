@@ -32,23 +32,30 @@ export async function getSession(): Promise<SessionUser | null> {
 
     // Check if token should be refreshed
     if (shouldRefreshToken(payload)) {
-      // Generate new token with same data
-      const newToken = generateSessionToken({
-        userId: payload.userId,
-        phone: payload.phone,
-        name: payload.name,
-        role: payload.role,
-        deviceFingerprint: payload.deviceFingerprint,
-      });
+      try {
+        // Generate new token with same data
+        const newToken = generateSessionToken({
+          userId: payload.userId,
+          phone: payload.phone,
+          name: payload.name,
+          role: payload.role,
+          deviceFingerprint: payload.deviceFingerprint,
+        });
 
-      // Update cookie
-      cookieStore.set('haisa-session', newToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 24 * 60 * 60, // 24 hours
-        path: '/',
-      });
+        // Update cookie
+        cookieStore.set('haisa-session', newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 24 * 60 * 60, // 24 hours
+          path: '/',
+        });
+        
+        console.log('Session token refreshed for user:', payload.userId);
+      } catch (refreshError) {
+        console.error('Failed to refresh token:', refreshError);
+        // Continue with existing token if refresh fails
+      }
     }
 
     return {

@@ -25,6 +25,25 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    // Client-side validation
+    if (phone.length < 10) {
+      setError('Nomor WhatsApp minimal 10 digit');
+      setLoading(false);
+      return;
+    }
+
+    if (phone.length > 15) {
+      setError('Nomor WhatsApp maksimal 15 digit');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^\d+$/.test(phone)) {
+      setError('Nomor WhatsApp hanya boleh berisi angka');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -43,9 +62,15 @@ export default function LoginPage() {
         }
       } else {
         setError(data.error || 'Login gagal');
+        
+        // Show specific error messages
+        if (data.retryAfter) {
+          setError(`Terlalu banyak percobaan. Coba lagi dalam ${data.retryAfter} detik.`);
+        }
       }
-    } catch {
-      setError('Terjadi kesalahan');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Terjadi kesalahan koneksi. Periksa internet Anda.');
     } finally {
       setLoading(false);
     }
@@ -64,11 +89,13 @@ export default function LoginPage() {
               type="tel"
               value={phone}
               onChange={handlePhoneChange}
-              placeholder="6281234567890"
+              placeholder="Contoh: 6281234567890"
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
               required
+              minLength={10}
+              maxLength={15}
             />
-            <p className="text-slate-500 text-xs mt-1">Contoh: 6281234567890 (tanpa +)</p>
+            <p className="text-slate-500 text-xs mt-1">Masukkan nomor WhatsApp tanpa tanda + (contoh: 6281234567890)</p>
           </div>
 
           <div>

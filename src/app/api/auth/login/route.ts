@@ -110,6 +110,13 @@ export async function POST(request: NextRequest) {
 
     // Log successful login
     logLoginSuccess(user.id, user.phone, request);
+    
+    console.log('Login successful for user:', {
+      id: user.id,
+      phone: user.phone,
+      role: user.role,
+      sessionToken: sessionToken.substring(0, 20) + '...',
+    });
 
     return NextResponse.json({
       success: true,

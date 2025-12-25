@@ -3,8 +3,8 @@
  * Riwayat pengaduan Unblock WA
  */
 
-import { cookies } from 'next/headers';
 import { prisma } from '@/core/db';
+import { getSession } from '@/core/auth/session';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -48,31 +48,15 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-async function getSessionUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session-token')?.value;
-  
-  if (!sessionToken) return null;
-  
-  const session = await prisma.session.findUnique({
-    where: { sessionToken },
-    include: { user: true },
-  });
-  
-  if (!session || session.expires < new Date()) return null;
-  
-  return session.user;
-}
-
 export default async function TicketsListPage() {
-  const user = await getSessionUser();
+  const session = await getSession();
 
-  if (!user) {
+  if (!session) {
     redirect('/login');
   }
 
   const tickets = await prisma.ticket.findMany({
-    where: { customerId: user.id },
+    where: { customerId: session.userId },
     select: {
       id: true,
       ticketNo: true,
@@ -97,11 +81,9 @@ export default async function TicketsListPage() {
             <Link href="/customer/dashboard" className="text-sm text-slate-400 hover:text-white">
               ← Dashboard
             </Link>
-            <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">
-                Keluar
-              </button>
-            </form>
+            <Link href="/api/auth/logout" className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">
+              Keluar
+            </Link>
           </div>
         </div>
       </header>

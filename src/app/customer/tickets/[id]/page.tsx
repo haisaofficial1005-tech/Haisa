@@ -3,7 +3,7 @@
  * Requirements: 7.3, 7.4
  */
 
-import { cookies } from 'next/headers';
+import { getSession } from '@/core/auth/session';
 import { prisma } from '@/core/db';
 import Link from 'next/link';
 import { redirect, notFound } from 'next/navigation';
@@ -53,31 +53,15 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function getSessionUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session-token')?.value;
-  
-  if (!sessionToken) return null;
-  
-  const session = await prisma.session.findUnique({
-    where: { sessionToken },
-    include: { user: true },
-  });
-  
-  if (!session || session.expires < new Date()) return null;
-  
-  return session.user;
-}
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
 export default async function TicketDetailPage({ params }: PageProps) {
-  const user = await getSessionUser();
+  const session = await getSession();
   const { id } = await params;
 
-  if (!user) {
+  if (!session) {
     redirect('/login');
   }
 
@@ -118,7 +102,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
   }
 
   // Check ownership
-  if (ticket.customerId !== user.id) {
+  if (ticket.customerId !== session.userId) {
     redirect('/customer/tickets');
   }
 

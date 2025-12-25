@@ -1,42 +1,38 @@
 /**
- * Get current user API
+ * Get Current User Session API
+ * Returns current user information if authenticated
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/core/db';
-
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+import { getSession } from '@/core/auth/session';
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionToken = request.cookies.get('session-token')?.value;
+    const session = await getSession();
 
-    if (!sessionToken) {
-      return NextResponse.json({ user: null });
-    }
-
-    const session = await prisma.session.findUnique({
-      where: { sessionToken },
-      include: { user: true },
-    });
-
-    if (!session || session.expires < new Date()) {
-      const response = NextResponse.json({ user: null });
-      response.cookies.delete('session-token');
-      return response;
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'No active session' },
+        { status: 401 }
+      );
     }
 
     return NextResponse.json({
+      success: true,
       user: {
-        id: session.user.id,
-        phone: session.user.email,
-        name: session.user.name,
-        role: session.user.role,
+        userId: session.userId,
+        phone: session.phone,
+        name: session.name,
+        role: session.role,
+        loginAt: session.loginAt,
+        sessionId: session.sessionId,
       },
     });
   } catch (error) {
-    console.error('Get user error:', error);
-    return NextResponse.json({ user: null });
+    console.error('Get session error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Server error' },
+      { status: 500 }
+    );
   }
 }
