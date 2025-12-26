@@ -52,3 +52,5 @@ next-env.d.ts
 *.key
 *.pem
 *.p12
+.vercel
+.env*.local

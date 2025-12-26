@@ -138,9 +138,9 @@ export default async function CustomerDashboard() {
               <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 transition-colors">
                 📱 WhatsApp Support
               </a>
-              <a href="mailto:support@haisa.wa" className="text-blue-400 hover:text-blue-300 transition-colors">
-                📧 Email Support
-              </a>
+              <Link href="/contact" className="text-blue-400 hover:text-blue-300 transition-colors">
+                📧 Form Kontak
+              </Link>
               <Link href="/faq" className="text-slate-400 hover:text-white transition-colors">
                 ❓ FAQ
               </Link>
