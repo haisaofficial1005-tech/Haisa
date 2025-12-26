@@ -18,6 +18,8 @@ model User {
   image         String?
   phone         String?   @unique  // Added phone field for WhatsApp-based auth
   role          String    @default("CUSTOMER")
+  hasPassword   Boolean   @default(false)  // Track if user has set password
+  passwordHash  String?   // Hashed password for secure login
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

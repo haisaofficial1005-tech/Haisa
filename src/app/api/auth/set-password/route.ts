@@ -1,6 +1,6 @@
 /**
- * Login with Password API - Step 2 of Login
- * Authenticates user with phone + password
+ * Set Password API - For new users or users without password
+ * Creates account with password
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,7 +8,7 @@ import { prisma } from '@/core/db';
 import { cookies } from 'next/headers';
 import { generateSessionToken, generateDeviceFingerprint } from '@/core/security/jwt';
 import { validateLoginInput } from '@/core/security/validation';
-import { verifyPassword } from '@/core/security/encryption';
+import { hashPassword } from '@/core/security/encryption';
 import { checkRateLimit, isClientBlocked } from '@/core/security/rate-limit';
 import { logLoginSuccess, logLoginFailed, logRateLimitExceeded } from '@/core/security/logger';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Check rate limit
     const rateLimit = checkRateLimit(request, 'LOGIN');
     if (!rateLimit.allowed) {
-      logRateLimitExceeded('/api/auth/login', request);
+      logRateLimitExceeded('/api/auth/set-password', request);
       return NextResponse.json(
         { 
           success: false, 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone, password } = await request.json();
+    const { phone, name, password } = await request.json();
 
     if (!phone || !password) {
       logLoginFailed(phone || '', 'Missing phone or password', request);
@@ -46,10 +46,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate password
+    if (password.length < 6) {
+      return NextResponse.json(
+        { success: false, error: 'Password minimal 6 karakter' },
+        { status: 400 }
+      );
+    }
+
     // Validate and sanitize input
     let validatedData;
     try {
-      validatedData = validateLoginInput(phone, '');
+      validatedData = validateLoginInput(phone, name || '');
     } catch (error) {
       logLoginFailed(phone, `Validation error: ${error.message}`, request);
       return NextResponse.json(
@@ -58,37 +66,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone: normalizedPhone } = validatedData;
+    const { phone: normalizedPhone, name: sanitizedName } = validatedData;
 
-    // Find user
-    const user = await prisma.user.findUnique({
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
+    // Find or create user
+    let user = await prisma.user.findUnique({
       where: { phone: normalizedPhone },
     });
 
-    if (!user) {
-      logLoginFailed(normalizedPhone, 'User not found', request);
-      return NextResponse.json(
-        { success: false, error: 'Nomor WhatsApp tidak terdaftar' },
-        { status: 401 }
-      );
-    }
-
-    if (!user.hasPassword || !user.passwordHash) {
-      logLoginFailed(normalizedPhone, 'User has no password', request);
-      return NextResponse.json(
-        { success: false, error: 'Akun belum memiliki password. Silakan set password terlebih dahulu.' },
-        { status: 401 }
-      );
-    }
-
-    // Verify password
-    const isPasswordValid = await verifyPassword(password, user.passwordHash);
-    if (!isPasswordValid) {
-      logLoginFailed(normalizedPhone, 'Invalid password', request);
-      return NextResponse.json(
-        { success: false, error: 'Password salah' },
-        { status: 401 }
-      );
+    if (user) {
+      // Update existing user with password
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          hasPassword: true,
+          passwordHash,
+          name: sanitizedName || user.name,
+        },
+      });
+    } else {
+      // Create new user with password
+      const uniqueEmail = `${normalizedPhone}@haisa.wa`;
+      user = await prisma.user.create({
+        data: {
+          phone: normalizedPhone,
+          name: sanitizedName || `User ${normalizedPhone}`,
+          email: uniqueEmail,
+          role: 'CUSTOMER',
+          hasPassword: true,
+          passwordHash,
+        },
+      });
     }
 
     // Generate device fingerprint for additional security
@@ -119,7 +129,7 @@ export async function POST(request: NextRequest) {
     // Log successful login
     logLoginSuccess(user.id, user.phone, request);
 
-    console.log('Login successful for user:', {
+    console.log('Password set successfully for user:', {
       id: user.id,
       phone: user.phone,
       role: user.role,
@@ -136,7 +146,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Set password error:', error);
     logLoginFailed('', `Server error: ${error instanceof Error ? error.message : 'Unknown'}`, request);
     
     return NextResponse.json(
